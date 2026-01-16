@@ -2,12 +2,13 @@ import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
 import { chatStorage } from "./storage";
 
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "dummy-key",
-  baseURL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL || process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+// DeepSeek client for chat
+const deepseek = new OpenAI({
+  baseURL: "https://api.deepseek.com",
+  apiKey: process.env.DEEPSEEK_API_KEY,
 });
 
-const MODEL = "openai/gpt-4o-mini";
+const MODEL = "deepseek-chat";
 
 export function registerChatRoutes(app: Express): void {
   // Get all conversations
@@ -82,12 +83,12 @@ export function registerChatRoutes(app: Express): void {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      // Stream response from OpenAI
-      const stream = await openai.chat.completions.create({
+      // Stream response from DeepSeek
+      const stream = await deepseek.chat.completions.create({
         model: MODEL,
         messages: chatMessages,
         stream: true,
-        max_completion_tokens: 2048,
+        max_tokens: 2048,
       });
 
       let fullResponse = "";

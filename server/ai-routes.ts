@@ -1,69 +1,5 @@
 import type { Express, Request, Response } from "express";
-import OpenAI from "openai";
-
-const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "dummy-key",
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-});
-
-const openrouter = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY || "dummy-key",
-  baseURL: process.env.AI_INTEGRATIONS_OPENROUTER_BASE_URL,
-});
-
-type ProviderType = "openai" | "deepseek" | "gemini";
-
-interface ProviderConfig {
-  name: ProviderType;
-  client: OpenAI;
-  model: string;
-}
-
-function getAvailableProviders(): ProviderConfig[] {
-  const providers: ProviderConfig[] = [];
-  
-  if (process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-    providers.push({
-      name: "openai",
-      client: openai,
-      model: "gpt-4o-mini",
-    });
-  }
-  
-  if (process.env.AI_INTEGRATIONS_OPENROUTER_API_KEY) {
-    providers.push({
-      name: "deepseek",
-      client: openrouter,
-      model: "deepseek/deepseek-chat",
-    });
-  }
-  
-  return providers;
-}
-
-async function callWithFallback<T>(
-  operation: (provider: ProviderConfig) => Promise<T>
-): Promise<{ result: T; provider: ProviderType }> {
-  const providers = getAvailableProviders();
-  
-  if (providers.length === 0) {
-    throw new Error("No AI providers available");
-  }
-  
-  let lastError: Error | null = null;
-  
-  for (const provider of providers) {
-    try {
-      const result = await operation(provider);
-      return { result, provider: provider.name };
-    } catch (error: any) {
-      console.error(`Provider ${provider.name} failed:`, error.message);
-      lastError = error;
-    }
-  }
-  
-  throw lastError || new Error("All providers failed");
-}
+import { generateSummary, generateImageDescription, chatCompletion } from "./services/aiService";
 
 function stripMarkdownFences(text: string): string {
   let cleaned = text.trim();
@@ -85,7 +21,7 @@ export function registerAIRoutes(app: Express): void {
       const { text, complexity, count, images } = req.body;
 
       const hasImages = Array.isArray(images) && images.length > 0;
-      
+
       if (!text && !hasImages) {
         return res.status(400).json({ error: "Text or images required" });
       }
@@ -95,99 +31,35 @@ export function registerAIRoutes(app: Express): void {
 
       const userRequestedCount = typeof count === "number" && count > 0 ? count : null;
 
-      const buildPrompt = (bulletCount: number | null, complexityLevel: string): string => {
-        const countInstruction = bulletCount 
-          ? `You MUST generate EXACTLY ${bulletCount} main bullet points. Not more, not less. This is a strict requirement.`
-          : `Determine the optimal number of bullet points based on the text length and complexity. Cover all important concepts thoroughly.`;
+      let finalText = text || "";
 
-        if (complexityLevel === "simple") {
-          return `You are a study summary generator. Your task is to create a brief, hierarchical summary.
-
-CRITICAL INSTRUCTIONS:
-- ${countInstruction}
-- Each main point should have 1-2 supporting sub-points.
-- Do NOT stop early. Do NOT summarize or group multiple concepts into one point.
-
-Structure it with main points and supporting sub-points beneath each main point.
-Keep it concise and focus on the most important ideas. Use bullet points or dashes for clarity.
-
-Text:\n${text}`;
-        }
-
-        if (complexityLevel === "comprehensive") {
-          return `You are a study summary generator. Your task is to create a comprehensive study summary.
-
-CRITICAL INSTRUCTIONS:
-- ${countInstruction}
-- Each section should have multiple detailed points with sub-points.
-- Do NOT stop early. Do NOT be lazy. Generate comprehensive content.
-
-Organize it into sections:
-1. Overview - brief description of the topic
-2. Key Concepts - main concepts with explanations as sub-points
-3. Important Definitions - key terms and their meanings
-4. Main Points - detailed points with supporting information
-5. Common Misconceptions - things to avoid misunderstanding
-6. Study Tips - advice for learning this material
-
-Use a hierarchical structure with main points and indented sub-points throughout.
-
-Text:\n${text}`;
-        }
-
-        return `You are a study summary generator. Your task is to create a detailed, hierarchical summary.
-
-CRITICAL INSTRUCTIONS:
-- ${countInstruction}
-- Each main point should have 2-3 supporting sub-points with examples.
-- Do NOT stop early. Do NOT summarize or group multiple concepts into one point.
-
-Structure it as:
-- Main topics as top-level points
-- Supporting details, explanations, and examples as indented sub-points
-- Include key concepts, definitions, and relationships
-
-Make it clear and organized for studying.
-
-Text:\n${text}`;
-      };
-
-      const basePrompt = buildPrompt(userRequestedCount, level);
-      const visionPrompt = hasImages 
-        ? `First, analyze the image(s) provided and extract all relevant educational content. Then:\n\n${basePrompt}`
-        : basePrompt;
-
-      const maxTokens = userRequestedCount && userRequestedCount > 20 ? 8192 : 4096;
-
-      const { result, provider } = await callWithFallback(async (config) => {
-        let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
-        
-        if (hasImages) {
-          const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-            { type: "text", text: visionPrompt }
-          ];
-          for (const img of images) {
-            parts.push({
-              type: "image_url",
-              image_url: {
-                url: img.startsWith("data:") ? img : `data:image/png;base64,${img}`,
-              },
-            });
+      // If images are provided, use Gemini to analyze them and extract text
+      if (hasImages) {
+        const imageDescriptions: string[] = [];
+        for (const image of images) {
+          try {
+            const description = await generateImageDescription(
+              image,
+              "Extract and describe all text, diagrams, and educational content from this image in detail."
+            );
+            imageDescriptions.push(description);
+          } catch (error) {
+            console.error("Error analyzing image:", error);
           }
-          messageContent = parts;
-        } else {
-          messageContent = visionPrompt;
         }
 
-        const completion = await config.client.chat.completions.create({
-          model: config.model,
-          messages: [{ role: "user", content: messageContent }],
-          max_tokens: maxTokens,
-        });
-        return cleanTextResponse(completion.choices[0]?.message?.content || "");
+        if (imageDescriptions.length > 0) {
+          finalText += "\n\nImage Analysis:\n" + imageDescriptions.join("\n\n");
+        }
+      }
+
+      // Use DeepSeek to generate the summary
+      const summary = await generateSummary(finalText, {
+        complexity: level as "simple" | "detailed" | "comprehensive",
+        count: userRequestedCount || undefined,
       });
 
-      res.json({ summary: result, provider, visionUsed: hasImages });
+      res.json({ summary, provider: "deepseek", visionUsed: hasImages });
     } catch (error: any) {
       console.error("Summarize error:", error);
       res.status(500).json({ error: error.message || "Failed to generate summary" });
@@ -552,16 +424,9 @@ Provide clear, helpful answers to their questions. Keep your responses focused a
         }
       }
 
-      const { result, provider } = await callWithFallback(async (config) => {
-        const completion = await config.client.chat.completions.create({
-          model: config.model,
-          messages: formattedMessages,
-          max_tokens: 2048,
-        });
-        return cleanTextResponse(completion.choices[0]?.message?.content || "");
-      });
+      const response = await chatCompletion(formattedMessages, { maxTokens: 2048 });
 
-      res.json({ response: result, provider });
+      res.json({ response, provider: "deepseek" });
     } catch (error: any) {
       console.error("Follow-up error:", error);
       res.status(500).json({ error: error.message || "Failed to generate response" });
