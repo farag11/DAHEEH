@@ -7,7 +7,18 @@ import { Platform } from "react-native";
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  // Try multiple sources for the domain
+  // Check for production environment
+  const isProduction = process.env.NODE_ENV === "production" ||
+                      process.env.EXPO_PUBLIC_ENV === "production" ||
+                      !__DEV__;
+
+  // Use production URL for production builds
+  if (isProduction) {
+    // Use environment variable if available, otherwise fallback to production URL
+    return process.env.EXPO_PUBLIC_DOMAIN || "https://daheeh.onrender.com";
+  }
+
+  // Try multiple sources for the domain in development
   let host =
     process.env.EXPO_PUBLIC_DOMAIN ||
     Constants.expoConfig?.extra?.domain ||
