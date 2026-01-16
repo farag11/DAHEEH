@@ -104,7 +104,7 @@ export function ThemedText({
       style={[
         { color: getColor() }, 
         typeStyle, 
-        { fontFamily },
+        { fontFamily, fontWeight: undefined }, // Explicitly set fontFamily and unset fontWeight
         isRTL && { textAlign: "right" },
         style,
       ]} 

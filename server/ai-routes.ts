@@ -1,5 +1,43 @@
 import type { Express, Request, Response } from "express";
 import { generateSummary, generateImageDescription, chatCompletion } from "./services/aiService";
+import OpenAI from "openai";
+
+interface ProviderConfig {
+  client: OpenAI;
+  model: string;
+}
+
+async function callWithFallback<T>(
+  fn: (config: ProviderConfig) => Promise<T>,
+  primaryConfig: ProviderConfig = {
+    client: new OpenAI({
+      baseURL: "https://api.deepseek.com",
+      apiKey: process.env.DEEPSEEK_API_KEY,
+    }),
+    model: "deepseek-chat",
+  },
+  fallbackConfig: ProviderConfig = {
+    client: new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    }),
+    model: "gpt-4o",
+  }
+): Promise<{ result: T; provider: string }> {
+  try {
+    const result = await fn(primaryConfig);
+    return { result, provider: primaryConfig.model };
+  } catch (primaryError) {
+    console.warn(`Primary AI provider (${primaryConfig.model}) failed:`, primaryError);
+    try {
+      console.log(`Attempting fallback to ${fallbackConfig.model}...`);
+      const result = await fn(fallbackConfig);
+      return { result, provider: fallbackConfig.model };
+    } catch (fallbackError) {
+      console.error(`Fallback AI provider (${fallbackConfig.model}) also failed:`, fallbackError);
+      throw primaryError; // Re-throw the primary error if fallback also fails
+    }
+  }
+}
 
 function stripMarkdownFences(text: string): string {
   let cleaned = text.trim();
