@@ -53,9 +53,9 @@ export async function generateSummary(
     prompt += ` with a ${complexity} level of detail:\n\n${text}`;
 
     const completion = await deepseekClient.chat.completions.create({
-      model: "deepseek-chat",
+      model: "deepseek-reasoner",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 4096,
+      max_tokens: 8192,
     });
 
     return completion.choices[0]?.message?.content || "";
@@ -134,7 +134,7 @@ export async function chatCompletion(
     const { maxTokens = 2048 } = options;
 
     const completion = await deepseekClient.chat.completions.create({
-      model: "deepseek-chat",
+      model: "deepseek-reasoner",
       messages,
       max_tokens: maxTokens,
     });

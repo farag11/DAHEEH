@@ -213,7 +213,7 @@ VALIDATION RULES:
 - For mcq: options MUST have exactly 4 items
 - For shortAnswer: options MUST be empty []
 
-Return ONLY a valid JSON array of ${targetCount} question objects. No markdown, no code blocks, no other text.
+OUTPUT FORMAT: Return Minified JSON array only. No markdown, no code blocks, no explanatory text.
 
 Text to base questions on:
 ${text}`;
@@ -319,8 +319,17 @@ ${text}`;
         const batchResults = await Promise.all(batchPromises);
         const allQuestions = batchResults.flat();
         
-        console.log(`[Quiz API] All batches complete: ${allQuestions.length}/${questionCount} questions generated`);
-        return allQuestions.slice(0, questionCount);
+        // Deduplicate questions by question text
+        const seen = new Set<string>();
+        const uniqueQuestions = allQuestions.filter(q => {
+          const key = q.question?.toLowerCase().trim();
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        
+        console.log(`[Quiz API] All batches complete: ${allQuestions.length} generated, ${uniqueQuestions.length} unique after deduplication`);
+        return uniqueQuestions.slice(0, questionCount);
       };
 
       const { result, provider } = await callWithFallback(async (client, model) => {
@@ -370,33 +379,41 @@ Include:
 
 Use clear formatting with headers and bullet points. Return plain text only, no markdown code blocks.`;
 
-      const { result, provider } = await callWithFallback(async (client, model) => {
-        let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
-        
-        if (hasImages) {
-          const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-            { type: "text", text: prompt }
-          ];
-          for (const img of images) {
-            parts.push({
-              type: "image_url",
-              image_url: {
-                url: img.startsWith("data:") ? img : `data:image/png;base64,${img}`,
-              },
-            });
+      // Use deepseek-reasoner for high-quality explanations
+      const { result, provider } = await callWithFallback(
+        async (client, model) => {
+          let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
+          
+          if (hasImages) {
+            const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+              { type: "text", text: prompt }
+            ];
+            for (const img of images) {
+              parts.push({
+                type: "image_url",
+                image_url: {
+                  url: img.startsWith("data:") ? img : `data:image/png;base64,${img}`,
+                },
+              });
+            }
+            messageContent = parts;
+          } else {
+            messageContent = prompt;
           }
-          messageContent = parts;
-        } else {
-          messageContent = prompt;
-        }
 
-        const completion = await client.chat.completions.create({
-          model: model,
-          messages: [{ role: "user", content: messageContent }],
-          max_tokens: 2048,
-        });
-        return cleanTextResponse(completion.choices[0]?.message?.content || "");
-      });
+          const completion = await client.chat.completions.create(
+            {
+              model: model,
+              messages: [{ role: "user", content: messageContent }],
+              max_tokens: 4096,
+            },
+            { timeout: 120000 }
+          );
+          return cleanTextResponse(completion.choices[0]?.message?.content || "");
+        },
+        { client: deepseekClient, model: "deepseek-reasoner" },
+        { client: openaiClient, model: "gpt-4o" }
+      );
 
       res.json({ explanation: result, provider, visionUsed: hasImages });
     } catch (error: any) {
