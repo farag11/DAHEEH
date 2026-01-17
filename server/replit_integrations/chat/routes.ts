@@ -2,21 +2,13 @@ import type { Express, Request, Response } from "express";
 import OpenAI from "openai";
 import { chatStorage } from "./storage";
 
-// DeepSeek client for chat - initialized lazily to avoid startup errors
-let deepseek: OpenAI | null = null;
-
-function getDeepSeekClient(): OpenAI {
-  if (!deepseek) {
-    if (!process.env.DEEPSEEK_API_KEY) {
-      throw new Error("DEEPSEEK_API_KEY environment variable is not set");
-    }
-    deepseek = new OpenAI({
+// DeepSeek client for chat - null if API key not configured
+const deepseek = process.env.DEEPSEEK_API_KEY
+  ? new OpenAI({
       baseURL: "https://api.deepseek.com",
       apiKey: process.env.DEEPSEEK_API_KEY,
-    });
-  }
-  return deepseek;
-}
+    })
+  : null;
 
 const MODEL = "deepseek-chat";
 
@@ -93,8 +85,15 @@ export function registerChatRoutes(app: Express): void {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
+      // Check if DeepSeek client is configured
+      if (!deepseek) {
+        res.write(`data: ${JSON.stringify({ error: "DeepSeek API key is not configured" })}\n\n`);
+        res.end();
+        return;
+      }
+
       // Stream response from DeepSeek
-      const stream = await getDeepSeekClient().chat.completions.create({
+      const stream = await deepseek.chat.completions.create({
         model: MODEL,
         messages: chatMessages,
         stream: true,
