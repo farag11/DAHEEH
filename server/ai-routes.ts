@@ -1,6 +1,11 @@
 import type { Express, Request, Response } from "express";
 import { generateSummary, generateImageDescription, chatCompletion, openaiClient, deepseekClient } from "./services/aiService";
 import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Initialize Gemini client for fast question generation
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
 
 interface ProviderConfig {
   client: OpenAI | null;
@@ -268,7 +273,43 @@ ${text}`;
         return normalized;
       };
 
-      const generateBatch = async (client: OpenAI, model: string, batchSize: number, batchIndex: number, includeImages: boolean): Promise<any[]> => {
+      // Gemini batch generation function (primary - fast)
+      const generateBatchGemini = async (batchSize: number, batchIndex: number, includeImages: boolean): Promise<any[]> => {
+        if (!genAI) throw new Error("Gemini API key not configured");
+        
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.0-flash",
+          generationConfig: { 
+            responseMimeType: "application/json",
+            maxOutputTokens: 4096,
+          }
+        });
+        
+        const batchPrompt = buildPrompt(batchSize, 0);
+        
+        let result;
+        if (includeImages && images.length > 0) {
+          const imageParts = images.map((img: string) => ({
+            inlineData: {
+              data: img.startsWith("data:") ? img.split(",")[1] : img,
+              mimeType: img.startsWith("data:") ? img.split(":")[1].split(";")[0] : "image/png",
+            }
+          }));
+          const visionPrompt = `First, analyze the image(s) to understand the educational content. Then generate questions based on what you see.\n\n${batchPrompt}`;
+          result = await model.generateContent([visionPrompt, ...imageParts]);
+        } else {
+          result = await model.generateContent(batchPrompt);
+        }
+        
+        const responseText = result.response.text();
+        const rawQuestions = parseQuestions(responseText);
+        const normalizedQuestions = rawQuestions.map(normalizeQuestion);
+        console.log(`[Quiz API] Gemini Batch ${batchIndex + 1} generated: ${normalizedQuestions.length} questions`);
+        return normalizedQuestions;
+      };
+
+      // DeepSeek/OpenAI batch generation function (fallback)
+      const generateBatchOpenAI = async (client: OpenAI, model: string, batchSize: number, batchIndex: number, includeImages: boolean): Promise<any[]> => {
         const batchPrompt = buildPrompt(batchSize, 0);
         const visionPrompt = includeImages
           ? `First, analyze the image(s) to understand the educational content. Then generate questions based on what you see.\n\n${batchPrompt}`
@@ -305,47 +346,84 @@ ${text}`;
         const responseText = completion.choices[0]?.message?.content || "";
         const rawQuestions = parseQuestions(responseText);
         const normalizedQuestions = rawQuestions.map(normalizeQuestion);
-        console.log(`[Quiz API] Batch ${batchIndex + 1} generated: ${normalizedQuestions.length} questions`);
+        console.log(`[Quiz API] OpenAI Batch ${batchIndex + 1} generated: ${normalizedQuestions.length} questions`);
         return normalizedQuestions;
       };
 
-      const generateWithParallelBatches = async (client: OpenAI, model: string): Promise<any[]> => {
+      const generateWithParallelBatches = async (): Promise<{ questions: any[], provider: string }> => {
         const BATCH_SIZE = 8;
         // Over-fetch by 1.5x to guarantee exact count after deduplication
         const fetchTarget = Math.ceil(questionCount * 1.5);
         const numBatches = Math.ceil(fetchTarget / BATCH_SIZE);
         
-        console.log(`[Quiz API] Over-fetching strategy: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
-        
-        const batchPromises: Promise<any[]>[] = [];
-        for (let i = 0; i < numBatches; i++) {
-          const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
-          const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
-          const includeImages = hasImages && i === 0;
-          batchPromises.push(generateBatch(client, model, batchSize, i, includeImages));
+        // Try Gemini first (fastest)
+        if (genAI) {
+          try {
+            console.log(`[Quiz API] Using Gemini 1.5 Flash: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
+            
+            const batchPromises: Promise<any[]>[] = [];
+            for (let i = 0; i < numBatches; i++) {
+              const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
+              const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
+              const includeImages = hasImages && i === 0;
+              batchPromises.push(generateBatchGemini(batchSize, i, includeImages));
+            }
+            
+            const batchResults = await Promise.all(batchPromises);
+            const allQuestions = batchResults.flat();
+            
+            // Deduplicate questions by question text
+            const seen = new Set<string>();
+            const uniqueQuestions = allQuestions.filter(q => {
+              const key = q.question?.toLowerCase().trim();
+              if (!key || seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            
+            // Slice to exact requested count
+            const finalQuestions = uniqueQuestions.slice(0, questionCount);
+            console.log(`[Quiz API] Gemini Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
+            return { questions: finalQuestions, provider: "gemini-1.5-flash" };
+          } catch (error) {
+            console.warn("[Quiz API] Gemini failed, falling back to DeepSeek/OpenAI:", error);
+          }
         }
         
-        const batchResults = await Promise.all(batchPromises);
-        const allQuestions = batchResults.flat();
-        
-        // Deduplicate questions by question text
-        const seen = new Set<string>();
-        const uniqueQuestions = allQuestions.filter(q => {
-          const key = q.question?.toLowerCase().trim();
-          if (!key || seen.has(key)) return false;
-          seen.add(key);
-          return true;
+        // Fallback to DeepSeek/OpenAI
+        const { result, provider } = await callWithFallback(async (client, model) => {
+          console.log(`[Quiz API] Fallback to ${model}: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
+          
+          const batchPromises: Promise<any[]>[] = [];
+          for (let i = 0; i < numBatches; i++) {
+            const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
+            const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
+            const includeImages = hasImages && i === 0;
+            batchPromises.push(generateBatchOpenAI(client, model, batchSize, i, includeImages));
+          }
+          
+          const batchResults = await Promise.all(batchPromises);
+          const allQuestions = batchResults.flat();
+          
+          // Deduplicate questions by question text
+          const seen = new Set<string>();
+          const uniqueQuestions = allQuestions.filter(q => {
+            const key = q.question?.toLowerCase().trim();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          
+          // Slice to exact requested count
+          const finalQuestions = uniqueQuestions.slice(0, questionCount);
+          console.log(`[Quiz API] Fallback Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
+          return finalQuestions;
         });
         
-        // Slice to exact requested count
-        const finalQuestions = uniqueQuestions.slice(0, questionCount);
-        console.log(`[Quiz API] Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
-        return finalQuestions;
+        return { questions: result, provider };
       };
 
-      const { result, provider } = await callWithFallback(async (client, model) => {
-        return generateWithParallelBatches(client, model);
-      });
+      const { questions: result, provider } = await generateWithParallelBatches();
 
       res.json({ questions: result, provider });
     } catch (error: any) {
