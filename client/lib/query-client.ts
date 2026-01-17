@@ -7,50 +7,20 @@ import { Platform } from "react-native";
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  // Check for production environment
-  const isProduction = process.env.NODE_ENV === "production" ||
-                      process.env.EXPO_PUBLIC_ENV === "production" ||
-                      !__DEV__;
-
-  // Use production URL for production builds
-  if (isProduction) {
-    // Use environment variable if available, otherwise fallback to production URL
-    return process.env.EXPO_PUBLIC_DOMAIN || "https://daheeh.onrender.com";
+  // Always use the configured public domain for API requests
+  const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
+  
+  if (publicDomain) {
+    return publicDomain;
   }
-
-  // Try multiple sources for the domain in development
-  let host =
-    process.env.EXPO_PUBLIC_DOMAIN ||
-    Constants.expoConfig?.extra?.domain ||
-    Constants.expoConfig?.hostUri?.split(":")[0];
 
   // For web, use window.location
   if (Platform.OS === "web" && typeof window !== "undefined") {
     return window.location.origin;
   }
 
-  // For physical Android/iOS devices, use local IP address instead of localhost
-  // This allows physical devices to communicate with the server running on the same network
-  if (Platform.OS === "android" || Platform.OS === "ios") {
-    // Check if we're in development mode and not using a configured domain
-    if (!host || host === "localhost" || host === "127.0.0.1") {
-      // Use local IP address for physical devices
-      // This assumes the server is running on port 5000 on the development machine
-      const localIP = process.env.EXPO_PUBLIC_LOCAL_IP || "192.168.1.100"; // Default fallback
-      console.log(`Using local IP ${localIP}:5000 for physical device communication`);
-      return `http://${localIP}:5000`;
-    }
-  }
-
-  // Fallback for development (simulator/emulator or when host is configured)
-  if (!host) {
-    // Use localhost for development
-    console.warn("Domain not configured, using localhost:5000");
-    return "http://localhost:5000";
-  }
-
-  let url = new URL(`https://${host}`);
-  return url.href;
+  // Fallback to production URL
+  return "https://daheeh.onrender.com";
 }
 
 async function throwIfResNotOk(res: Response) {
