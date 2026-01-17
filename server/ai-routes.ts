@@ -1,43 +1,48 @@
 import type { Express, Request, Response } from "express";
-import { generateSummary, generateImageDescription, chatCompletion } from "./services/aiService";
+import { generateSummary, generateImageDescription, chatCompletion, openaiClient, deepseekClient } from "./services/aiService";
 import OpenAI from "openai";
 
 interface ProviderConfig {
-  client: OpenAI;
+  client: OpenAI | null;
   model: string;
 }
 
 async function callWithFallback<T>(
-  fn: (config: ProviderConfig) => Promise<T>,
-  primaryConfig: ProviderConfig = {
-    client: new OpenAI({
-      baseURL: "https://api.deepseek.com",
-      apiKey: process.env.DEEPSEEK_API_KEY,
-    }),
+  fn: (client: OpenAI, model: string) => Promise<T>,
+  primaryConfig: { client: OpenAI | null; model: string } = {
+    client: deepseekClient,
     model: "deepseek-chat",
   },
-  fallbackConfig: ProviderConfig = {
-    client: new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    }),
+  fallbackConfig: { client: OpenAI | null; model: string } = {
+    client: openaiClient,
     model: "gpt-4o",
   }
 ): Promise<{ result: T; provider: string }> {
-  try {
-    const result = await fn(primaryConfig);
-    return { result, provider: primaryConfig.model };
-  } catch (primaryError) {
-    console.warn(`Primary AI provider (${primaryConfig.model}) failed:`, primaryError);
+  if (!primaryConfig.client && !fallbackConfig.client) {
+    throw new Error("No AI clients are configured. Please check API keys.");
+  }
+
+  if (primaryConfig.client) {
     try {
-      console.log(`Attempting fallback to ${fallbackConfig.model}...`);
-      const result = await fn(fallbackConfig);
+      const result = await fn(primaryConfig.client, primaryConfig.model);
+      return { result, provider: primaryConfig.model };
+    } catch (primaryError) {
+      console.warn(`Primary AI provider (${primaryConfig.model}) failed:`, primaryError);
+    }
+  }
+
+  if (fallbackConfig.client) {
+    console.log(`Attempting fallback to ${fallbackConfig.model}...`);
+    try {
+      const result = await fn(fallbackConfig.client, fallbackConfig.model);
       return { result, provider: fallbackConfig.model };
     } catch (fallbackError) {
       console.error(`Fallback AI provider (${fallbackConfig.model}) also failed:`, fallbackError);
       throw primaryError; // Re-throw the primary error if fallback also fails
     }
   }
-}
+
+  throw new Error("All AI providers failed or were not configured.");}
 
 function stripMarkdownFences(text: string): string {
   let cleaned = text.trim();
@@ -247,7 +252,7 @@ ${text}`;
         return normalized;
       };
 
-      const generateWithRetry = async (config: ProviderConfig): Promise<any[]> => {
+      const generateWithRetry = async (client: OpenAI, model: string): Promise<any[]> => {
         let allQuestions: any[] = [];
         const maxRetries = 3;
         let retryCount = 0;
@@ -277,8 +282,9 @@ ${text}`;
             messageContent = visionPrompt;
           }
           
-          const completion = await config.client.chat.completions.create({
-            model: config.model,
+                    const completion = await client.chat.completions.create({
+            model: model,
+            model: model,
             messages: [{ role: "user", content: messageContent }],
             max_tokens: 8192,
           });
@@ -305,8 +311,8 @@ ${text}`;
         return allQuestions.slice(0, questionCount);
       };
 
-      const { result, provider } = await callWithFallback(async (config) => {
-        return generateWithRetry(config);
+      const { result, provider } = await callWithFallback(async (client, model) => {
+        return generateWithRetry(client, model);
       });
 
       res.json({ questions: result, provider });
@@ -352,7 +358,7 @@ Include:
 
 Use clear formatting with headers and bullet points. Return plain text only, no markdown code blocks.`;
 
-      const { result, provider } = await callWithFallback(async (config) => {
+      const { result, provider } = await callWithFallback(async (client, model) => {
         let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
         
         if (hasImages) {
@@ -372,8 +378,8 @@ Use clear formatting with headers and bullet points. Return plain text only, no 
           messageContent = prompt;
         }
 
-        const completion = await config.client.chat.completions.create({
-          model: config.model,
+        const completion = await client.chat.completions.create({
+          model: model,
           messages: [{ role: "user", content: messageContent }],
           max_tokens: 2048,
         });
@@ -422,9 +428,9 @@ Format it clearly with:
 
 Make it practical and achievable. Return plain text only, no markdown code blocks.`;
 
-      const { result, provider } = await callWithFallback(async (config) => {
-        const completion = await config.client.chat.completions.create({
-          model: config.model,
+      const { result, provider } = await callWithFallback(async (client, model) => {
+        const completion = await client.chat.completions.create({
+          model: model,
           messages: [{ role: "user", content: prompt }],
           max_tokens: 4096,
         });
@@ -446,9 +452,7 @@ Make it practical and achievable. Return plain text only, no markdown code block
         return res.status(400).json({ error: "Messages array is required" });
       }
 
-      const systemPrompt = `You are a helpful study assistant. The user has been studying a topic and has asked follow-up questions about the content.
-${context ? `\nContext about the conversation:\n${context}\n` : ""}
-Provide clear, helpful answers to their questions. Keep your responses focused and educational. If they ask to explain more about something, provide detailed explanations. If they ask what something means, give clear definitions with examples.`;
+      const systemPrompt = `You are a helpful study assistant. The user has been studying a topic and has asked follow-up questions about the content.\n${context ? `\nContext about the conversation:\n${context}\n` : ""}\nProvide clear, helpful answers to their questions. Keep your responses focused and educational. If they ask to explain more about something, provide detailed explanations. If they ask what something means, give clear definitions with examples.`;
 
       const formattedMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
         { role: "system", content: systemPrompt },

@@ -1,7 +1,6 @@
 import React from "react";
-import { View, ScrollView, StyleSheet, Pressable, StatusBar } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { View, ScrollView, StyleSheet, Pressable } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -18,6 +17,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 import { useFloatingDockHeight } from "@/navigation/MainTabNavigator";
+import { Header } from "@/components/Header"; // Import the new Header component
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList, "Home">;
 
@@ -30,7 +30,7 @@ const hexToRgba = (hex: string, alpha: number): string => {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
+  // const headerHeight = useHeaderHeight(); // This is no longer needed with the new Header component
   const floatingDockHeight = useFloatingDockHeight();
   const { theme } = useTheme();
   const { getAccentColor } = useAccentTheme();
@@ -84,11 +84,11 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      <Header title={t("home")} />
       <ScrollView
-        style={styles.container}
+        style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: (StatusBar.currentHeight || 0) + headerHeight + Spacing.xl,
           paddingBottom: floatingDockHeight + Spacing.lg,
           paddingHorizontal: Spacing.lg,
         }}
@@ -229,7 +229,7 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -237,6 +237,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0F0F14",
+  },
+  scrollView: {
+    flex: 1,
   },
   heroCard: {
     borderRadius: 20,

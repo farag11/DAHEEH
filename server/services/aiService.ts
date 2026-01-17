@@ -1,20 +1,35 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+const openaiApiKey = process.env.OPENAI_API_KEY; // For fallback in ai-routes
+const geminiApiKey = process.env.GEMINI_API_KEY;
+
 // DeepSeek client for text generation
-const deepseekClient = new OpenAI({
-  baseURL: "https://api.deepseek.com",
-  apiKey: process.env.DEEPSEEK_API_KEY,
-});
+const deepseekClient = deepseekApiKey
+  ? new OpenAI({
+      baseURL: "https://api.deepseek.com",
+      apiKey: deepseekApiKey,
+    })
+  : null;
+
+// OpenAI client (for fallback if needed directly here, or used via ai-routes)
+export const openaiClient = openaiApiKey
+  ? new OpenAI({
+      apiKey: openaiApiKey,
+    })
+  : null;
 
 // Gemini client for image analysis
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const genAI = geminiApiKey
+  ? new GoogleGenerativeAI(geminiApiKey)
+  : null;
 
 /**
  * Generates a summary using DeepSeek
  * @param text - The text to summarize
  * @param options - Additional options for summarization
- * @returns Promise<string> - The generated summary
+ * @returns Promise<string | null> - The generated summary or null if API key is not configured
  */
 export async function generateSummary(
   text: string,
@@ -22,7 +37,11 @@ export async function generateSummary(
     complexity?: 'simple' | 'detailed' | 'comprehensive';
     count?: number;
   } = {}
-): Promise<string> {
+): Promise<string | null> {
+  if (!deepseekClient) {
+    console.warn("DeepSeek API key is not configured. Skipping summary generation.");
+    return null;
+  }
   try {
     const { complexity = 'detailed', count } = options;
 
@@ -49,12 +68,16 @@ export async function generateSummary(
  * Generates an image description using Gemini
  * @param imageData - Base64 encoded image data or image URL
  * @param prompt - Optional custom prompt for analysis
- * @returns Promise<string> - The generated image description
+ * @returns Promise<string | null> - The generated image description or null if API key is not configured
  */
 export async function generateImageDescription(
   imageData: string,
   prompt: string = "Describe this image in detail, including any text, objects, and context."
-): Promise<string> {
+): Promise<string | null> {
+  if (!genAI) {
+    console.warn("Gemini API key is not configured. Skipping image description generation.");
+    return null;
+  }
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
 
@@ -96,12 +119,16 @@ export async function generateImageDescription(
  * General chat completion using DeepSeek
  * @param messages - Array of chat messages
  * @param options - Additional options for chat completion
- * @returns Promise<string> - The AI response
+ * @returns Promise<string | null> - The AI response or null if API key is not configured
  */
 export async function chatCompletion(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   options: { maxTokens?: number } = {}
-): Promise<string> {
+): Promise<string | null> {
+  if (!deepseekClient) {
+    console.warn("DeepSeek API key is not configured. Skipping chat completion.");
+    return null;
+  }
   try {
     const { maxTokens = 2048 } = options;
 

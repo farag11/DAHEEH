@@ -8,10 +8,8 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
+  Alert, // Import Alert for dummy action
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,6 +25,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { useFloatingDockHeight } from "@/navigation/MainTabNavigator";
+import { Header } from "@/components/Header"; // Import the new Header component
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -90,8 +89,6 @@ function getActionLabel(actionType: string, t: (key: string) => string): string 
 }
 
 export default function ProfileScreen() {
-  const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const floatingDockHeight = useFloatingDockHeight();
   const navigation = useNavigation<any>();
   const { theme } = useTheme();
@@ -167,6 +164,12 @@ export default function ProfileScreen() {
     await logout();
   };
 
+  const handleSettingsPress = () => {
+    haptics.lightTap();
+    Alert.alert("Settings", "Settings button pressed!");
+    // navigation.navigate("Settings"); // Uncomment and replace with your settings route if available
+  };
+
   const getIconColor = (type: string) => {
     switch (type) {
       case "summary":
@@ -181,15 +184,20 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <Header
+        title={t("profile")}
+        rightIconName="settings"
+        onRightIconPress={handleSettingsPress}
+      />
       <ScrollView
         style={styles.container}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.xl,
+          paddingTop: Spacing.md, // Adjusted padding after adding Header component
           paddingBottom: floatingDockHeight + Spacing.lg,
           paddingHorizontal: Spacing.lg,
         }}
-        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        // scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
       <View style={[styles.avatarContainer, { marginBottom: Spacing["2xl"] }]}>
         <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
@@ -589,7 +597,7 @@ export default function ProfileScreen() {
         destructive
       />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
