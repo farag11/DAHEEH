@@ -276,15 +276,17 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
-  configureExpoAndLanding(app);
-
+  // Register API routes FIRST (before static files and catch-all)
   const server = await registerRoutes(app);
+
+  // Static file serving and catch-all route AFTER API routes
+  configureExpoAndLanding(app);
 
   setupErrorHandler(app);
 
   const port = parseInt(process.env.PORT || "3000", 10);
 
-server.listen(port, "0.0.0.0", () => {
-  log(`express server serving on port ${port}`);
-});
+  server.listen(port, "0.0.0.0", () => {
+    log(`express server serving on port ${port}`);
+  });
 })();

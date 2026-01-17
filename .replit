@@ -15,10 +15,6 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5001
-externalPort = 3001
-
-[[ports]]
 localPort = 8081
 externalPort = 8081
 
@@ -44,14 +40,10 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Expo Preview"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
 args = "Backend Server"
 
 [[workflows.workflow]]
-name = "Expo Preview"
+name = "Backend Server"
 author = "agent"
 
 [workflows.workflow.metadata]
@@ -59,20 +51,8 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx expo start --web --port 5000"
-waitForPort = 5000
-
-[[workflows.workflow]]
-name = "Backend Server"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
 args = "npm run dev"
-waitForPort = 3000
-
-[workflows.workflow.metadata]
-outputType = "console"
+waitForPort = 5000
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:2.0.0"]
@@ -82,4 +62,4 @@ expertMode = true
 
 [userenv.shared]
 EXPO_PUBLIC_DOMAIN = "https://104bf032-d65b-4b04-94dc-0f0688588520-00-3f4wv5ngnw7d1.janeway.replit.dev"
-PORT = "3000"
+PORT = "5000"
