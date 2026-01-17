@@ -278,7 +278,7 @@ ${text}`;
         if (!genAI) throw new Error("Gemini API key not configured");
         
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.0-flash",
+          model: "gemini-2.5-flash",
           generationConfig: { 
             responseMimeType: "application/json",
             maxOutputTokens: 4096,
@@ -359,7 +359,7 @@ ${text}`;
         // Try Gemini first (fastest)
         if (genAI) {
           try {
-            console.log(`[Quiz API] Using Gemini 1.5 Flash: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
+            console.log(`[Quiz API] Using Gemini 2.5 Flash: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
             
             const batchPromises: Promise<any[]>[] = [];
             for (let i = 0; i < numBatches; i++) {
@@ -384,7 +384,7 @@ ${text}`;
             // Slice to exact requested count
             const finalQuestions = uniqueQuestions.slice(0, questionCount);
             console.log(`[Quiz API] Gemini Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
-            return { questions: finalQuestions, provider: "gemini-1.5-flash" };
+            return { questions: finalQuestions, provider: "gemini-2.5-flash" };
           } catch (error) {
             console.warn("[Quiz API] Gemini failed, falling back to DeepSeek/OpenAI:", error);
           }
