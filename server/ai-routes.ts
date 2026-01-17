@@ -303,14 +303,16 @@ ${text}`;
       };
 
       const generateWithParallelBatches = async (client: OpenAI, model: string): Promise<any[]> => {
-        const BATCH_SIZE = 5;
-        const numBatches = Math.ceil(questionCount / BATCH_SIZE);
+        const BATCH_SIZE = 8;
+        // Over-fetch by 1.5x to guarantee exact count after deduplication
+        const fetchTarget = Math.ceil(questionCount * 1.5);
+        const numBatches = Math.ceil(fetchTarget / BATCH_SIZE);
         
-        console.log(`[Quiz API] Starting parallel generation: ${questionCount} questions in ${numBatches} batches of ${BATCH_SIZE}`);
+        console.log(`[Quiz API] Over-fetching strategy: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
         
         const batchPromises: Promise<any[]>[] = [];
         for (let i = 0; i < numBatches; i++) {
-          const remainingQuestions = questionCount - (i * BATCH_SIZE);
+          const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
           const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
           const includeImages = hasImages && i === 0;
           batchPromises.push(generateBatch(client, model, batchSize, i, includeImages));
@@ -328,8 +330,10 @@ ${text}`;
           return true;
         });
         
-        console.log(`[Quiz API] All batches complete: ${allQuestions.length} generated, ${uniqueQuestions.length} unique after deduplication`);
-        return uniqueQuestions.slice(0, questionCount);
+        // Slice to exact requested count
+        const finalQuestions = uniqueQuestions.slice(0, questionCount);
+        console.log(`[Quiz API] Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
+        return finalQuestions;
       };
 
       const { result, provider } = await callWithFallback(async (client, model) => {
