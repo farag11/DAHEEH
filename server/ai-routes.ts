@@ -261,69 +261,70 @@ ${text}`;
         return normalized;
       };
 
-      const generateWithRetry = async (client: OpenAI, model: string): Promise<any[]> => {
-        let allQuestions: any[] = [];
-        const maxRetries = 3;
-        let retryCount = 0;
-
-        while (allQuestions.length < questionCount && retryCount < maxRetries) {
-          const basePrompt = buildPrompt(questionCount, allQuestions.length);
-          const visionPrompt = hasImages && retryCount === 0
-            ? `First, analyze the image(s) to understand the educational content. Then generate questions based on what you see.\n\n${basePrompt}`
-            : basePrompt;
-          
-          let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
-          
-          if (hasImages && retryCount === 0) {
-            const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-              { type: "text", text: visionPrompt }
-            ];
-            for (const img of images) {
-              parts.push({
-                type: "image_url",
-                image_url: {
-                  url: img.startsWith("data:") ? img : `data:image/png;base64,${img}`,
-                },
-              });
-            }
-            messageContent = parts;
-          } else {
-            messageContent = visionPrompt;
+      const generateBatch = async (client: OpenAI, model: string, batchSize: number, batchIndex: number, includeImages: boolean): Promise<any[]> => {
+        const batchPrompt = buildPrompt(batchSize, 0);
+        const visionPrompt = includeImages
+          ? `First, analyze the image(s) to understand the educational content. Then generate questions based on what you see.\n\n${batchPrompt}`
+          : batchPrompt;
+        
+        let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
+        
+        if (includeImages) {
+          const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
+            { type: "text", text: visionPrompt }
+          ];
+          for (const img of images) {
+            parts.push({
+              type: "image_url",
+              image_url: {
+                url: img.startsWith("data:") ? img : `data:image/png;base64,${img}`,
+              },
+            });
           }
-          
-          const completion = await client.chat.completions.create(
-            {
-              model: model,
-              messages: [{ role: "user", content: messageContent }],
-              max_tokens: 8192,
-            },
-            { timeout: 90000 }
-          );
-
-          const responseText = completion.choices[0]?.message?.content || "";
-          const rawQuestions = parseQuestions(responseText);
-          const newQuestions = rawQuestions.map(normalizeQuestion);
-
-          if (allQuestions.length === 0) {
-            allQuestions = newQuestions;
-          } else {
-            allQuestions = [...allQuestions, ...newQuestions];
-          }
-
-          console.log(`[Quiz API] Questions generated: ${allQuestions.length}/${questionCount} (attempt ${retryCount + 1})`);
-
-          if (allQuestions.length >= questionCount) {
-            break;
-          }
-
-          retryCount++;
+          messageContent = parts;
+        } else {
+          messageContent = visionPrompt;
         }
+        
+        const completion = await client.chat.completions.create(
+          {
+            model: model,
+            messages: [{ role: "user", content: messageContent }],
+            max_tokens: 4096,
+          },
+          { timeout: 60000 }
+        );
 
+        const responseText = completion.choices[0]?.message?.content || "";
+        const rawQuestions = parseQuestions(responseText);
+        const normalizedQuestions = rawQuestions.map(normalizeQuestion);
+        console.log(`[Quiz API] Batch ${batchIndex + 1} generated: ${normalizedQuestions.length} questions`);
+        return normalizedQuestions;
+      };
+
+      const generateWithParallelBatches = async (client: OpenAI, model: string): Promise<any[]> => {
+        const BATCH_SIZE = 5;
+        const numBatches = Math.ceil(questionCount / BATCH_SIZE);
+        
+        console.log(`[Quiz API] Starting parallel generation: ${questionCount} questions in ${numBatches} batches of ${BATCH_SIZE}`);
+        
+        const batchPromises: Promise<any[]>[] = [];
+        for (let i = 0; i < numBatches; i++) {
+          const remainingQuestions = questionCount - (i * BATCH_SIZE);
+          const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
+          const includeImages = hasImages && i === 0;
+          batchPromises.push(generateBatch(client, model, batchSize, i, includeImages));
+        }
+        
+        const batchResults = await Promise.all(batchPromises);
+        const allQuestions = batchResults.flat();
+        
+        console.log(`[Quiz API] All batches complete: ${allQuestions.length}/${questionCount} questions generated`);
         return allQuestions.slice(0, questionCount);
       };
 
       const { result, provider } = await callWithFallback(async (client, model) => {
-        return generateWithRetry(client, model);
+        return generateWithParallelBatches(client, model);
       });
 
       res.json({ questions: result, provider });

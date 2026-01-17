@@ -50,7 +50,9 @@ type QuizPhase = "input" | "quiz";
 function CircularProgress({ percentage, size = 140 }: { percentage: number; size?: number }) {
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayPercentage, setDisplayPercentage] = useState(0);
-  const strokeWidth = 10;
+  const strokeWidth = 12;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
   
   useEffect(() => {
     animatedValue.setValue(0);
@@ -76,16 +78,7 @@ function CircularProgress({ percentage, size = 140 }: { percentage: number; size
   };
 
   const progressColor = getColor();
-  const rotation1 = animatedValue.interpolate({
-    inputRange: [0, 50, 100],
-    outputRange: ["0deg", "180deg", "180deg"],
-    extrapolate: "clamp",
-  });
-  const rotation2 = animatedValue.interpolate({
-    inputRange: [0, 50, 100],
-    outputRange: ["0deg", "0deg", "180deg"],
-    extrapolate: "clamp",
-  });
+  const progressOffset = circumference - (displayPercentage / 100) * circumference;
 
   return (
     <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
@@ -102,75 +95,40 @@ function CircularProgress({ percentage, size = 140 }: { percentage: number; size
         position: "absolute",
         width: size,
         height: size,
-        overflow: "hidden",
-      }}>
-        <View style={{
-          position: "absolute",
-          width: size / 2,
-          height: size,
-          left: 0,
-          overflow: "hidden",
-        }}>
-          <Animated.View style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: strokeWidth,
-            borderColor: progressColor,
-            borderRightColor: "transparent",
-            borderBottomColor: "transparent",
-            transform: [
-              { translateX: size / 4 },
-              { rotate: rotation1 },
-              { translateX: -size / 4 },
-            ],
-          }} />
-        </View>
-        
-        <View style={{
-          position: "absolute",
-          width: size / 2,
-          height: size,
-          right: 0,
-          overflow: "hidden",
-        }}>
-          <Animated.View style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: strokeWidth,
-            borderColor: progressColor,
-            borderLeftColor: "transparent",
-            borderTopColor: "transparent",
-            marginLeft: -size / 2,
-            transform: [
-              { translateX: size / 4 },
-              { rotate: rotation2 },
-              { translateX: -size / 4 },
-            ],
-          }} />
-        </View>
-      </View>
+        borderRadius: size / 2,
+        borderWidth: strokeWidth,
+        borderColor: progressColor,
+        borderLeftColor: displayPercentage > 75 ? progressColor : "transparent",
+        borderBottomColor: displayPercentage > 50 ? progressColor : "transparent",
+        borderRightColor: displayPercentage > 25 ? progressColor : "transparent",
+        borderTopColor: progressColor,
+        transform: [{ rotate: "-90deg" }],
+        opacity: displayPercentage > 0 ? 1 : 0,
+      }} />
       
       <LinearGradient
-        colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.05)"]}
+        colors={["rgba(255, 255, 255, 0.12)", "rgba(255, 255, 255, 0.04)"]}
         style={{
           position: "absolute",
-          width: size - strokeWidth * 2 - 10,
-          height: size - strokeWidth * 2 - 10,
-          borderRadius: (size - strokeWidth * 2 - 10) / 2,
+          width: size - strokeWidth * 2 - 8,
+          height: size - strokeWidth * 2 - 8,
+          borderRadius: (size - strokeWidth * 2 - 8) / 2,
         }}
       />
-      <ThemedText style={{
-        fontSize: size * 0.3,
-        fontWeight: "700",
-        color: progressColor,
-        textShadowColor: progressColor,
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 10,
-      }}>
-        {displayPercentage}%
-      </ThemedText>
+      
+      <View style={{ alignItems: "center" }}>
+        <ThemedText style={{
+          fontSize: size * 0.32,
+          fontWeight: "800",
+          color: progressColor,
+          textShadowColor: progressColor,
+          textShadowOffset: { width: 0, height: 0 },
+          textShadowRadius: 15,
+          letterSpacing: -1,
+        }}>
+          {displayPercentage}%
+        </ThemedText>
+      </View>
     </View>
   );
 }
