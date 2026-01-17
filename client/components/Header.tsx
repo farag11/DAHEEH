@@ -1,35 +1,25 @@
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React from 'react';
-import { Ionicons } from '@expo/vector-icons'; // Assuming you have @expo/vector-icons installed
-import { useTheme } from '../hooks/useTheme';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { ThemedText } from './ThemedText'; 
 
 interface HeaderProps {
   title: string;
-  rightIconName?: keyof typeof Ionicons.glyphMap;
-  onRightIconPress?: () => void;
+  rightIcon?: keyof typeof Ionicons.glyphMap;
+  onRightPress?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, rightIconName, onRightIconPress }) => {
+export const Header: React.FC<HeaderProps> = ({ title, rightIcon, onRightPress }) => {
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-      <View style={styles.titleContainer}>
-        <Text style={[styles.title, { color: theme.colors.text }]}>{title}</Text>
-      </View>
-      {rightIconName && (
-        <Pressable
-          onPress={onRightIconPress}
-          style={({ pressed }) => [{
-            opacity: pressed ? 0.6 : 1,
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-          }]}
-        >
-          <Ionicons name={rightIconName} size={24} color={theme.colors.text} />
-        </Pressable>
+    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
+      <ThemedText style={styles.title}>{title}</ThemedText>
+      {rightIcon && (
+        <TouchableOpacity onPress={onRightPress} style={styles.iconButton}>
+          <Ionicons name={rightIcon} size={24} color="white" />
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -37,23 +27,20 @@ const Header: React.FC<HeaderProps> = ({ title, rightIconName, onRightIconPress 
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row
-  ',
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    backgroundColor: '#000',
+    flexDirection: 'row', // دي كانت المشكلة وصلحناها
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ccc',
-  },
-  titleContainer: {
-    flex: 1,
     alignItems: 'center',
+    zIndex: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  iconButton: {
+    padding: 5,
   },
 });
-
-export default Header;
