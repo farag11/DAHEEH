@@ -6,10 +6,11 @@ const openaiApiKey = process.env.OPENAI_API_KEY; // For fallback in ai-routes
 const geminiApiKey = process.env.GEMINI_API_KEY;
 
 // DeepSeek client for text generation
-const deepseekClient = deepseekApiKey
+export const deepseekClient = deepseekApiKey
   ? new OpenAI({
       baseURL: "https://api.deepseek.com",
       apiKey: deepseekApiKey,
+      timeout: 60000,
     })
   : null;
 

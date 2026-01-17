@@ -22,12 +22,15 @@ async function callWithFallback<T>(
     throw new Error("No AI clients are configured. Please check API keys.");
   }
 
+  let lastError: Error | null = null;
+
   if (primaryConfig.client) {
     try {
       const result = await fn(primaryConfig.client, primaryConfig.model);
       return { result, provider: primaryConfig.model };
-    } catch (primaryError) {
-      console.warn(`Primary AI provider (${primaryConfig.model}) failed:`, primaryError);
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Primary AI provider (${primaryConfig.model}) failed:`, error);
     }
   }
 
@@ -38,11 +41,12 @@ async function callWithFallback<T>(
       return { result, provider: fallbackConfig.model };
     } catch (fallbackError) {
       console.error(`Fallback AI provider (${fallbackConfig.model}) also failed:`, fallbackError);
-      throw primaryError; // Re-throw the primary error if fallback also fails
+      throw lastError || fallbackError;
     }
   }
 
-  throw new Error("All AI providers failed or were not configured.");}
+  throw lastError || new Error("All AI providers failed or were not configured.");
+}
 
 function stripMarkdownFences(text: string): string {
   let cleaned = text.trim();
@@ -122,7 +126,7 @@ export function registerAIRoutes(app: Express): void {
       const questionTypes = Array.isArray(types) 
         ? types.filter((t: string) => validTypes.includes(t)) 
         : ["mcq"];
-      const questionCount = typeof count === "number" && count > 0 && count <= 25 ? count : 25;
+      const questionCount = typeof count === "number" && count > 0 && count <= 20 ? count : 5;
 
       console.log(`[Quiz API] Received request - types: ${JSON.stringify(questionTypes)}, count: ${questionCount}`);
 
@@ -282,12 +286,14 @@ ${text}`;
             messageContent = visionPrompt;
           }
           
-                    const completion = await client.chat.completions.create({
-            model: model,
-            model: model,
-            messages: [{ role: "user", content: messageContent }],
-            max_tokens: 8192,
-          });
+          const completion = await client.chat.completions.create(
+            {
+              model: model,
+              messages: [{ role: "user", content: messageContent }],
+              max_tokens: 8192,
+            },
+            { timeout: 60000 }
+          );
 
           const responseText = completion.choices[0]?.message?.content || "";
           const rawQuestions = parseQuestions(responseText);
