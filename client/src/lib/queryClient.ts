@@ -7,19 +7,8 @@ import { Platform } from "react-native";
  * @returns {string} The API base URL
  */
 function getApiUrl(): string {
-  // Check for production environment
-  const isProduction = process.env.NODE_ENV === "production" ||
-                      process.env.EXPO_PUBLIC_ENV === "production" ||
-                      !__DEV__;
-
-  // Use production URL for production builds
-  if (isProduction) {
-    // Use environment variable if available, otherwise fallback to production URL
-    return process.env.EXPO_PUBLIC_DOMAIN || "https://daheeh.onrender.com";
-  }
-
-  // تم استخدام الـ IP الخاص بجهازك لضمان اتصال الموبايل بالسيرفر
-  return "http://192.168.1.3:5000";
+  // Use Replit server URL for all environments
+  return "https://daheeh-kikaelshrief.replit.dev";
 }
 
 const BASE_URL = getApiUrl(); 
