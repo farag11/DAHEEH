@@ -43,6 +43,71 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+// Normalize Arabic text: remove diacritics, normalize Alef variants, trim, lowercase
+function normalizeText(text: string): string {
+  if (!text) return "";
+  return text
+    .trim()
+    .toLowerCase()
+    // Remove Arabic diacritics (tashkeel)
+    .replace(/[\u064B-\u065F\u0670]/g, "")
+    // Normalize Alef variants (أ إ آ ٱ) to ا
+    .replace(/[أإآٱ]/g, "ا")
+    // Normalize Taa Marbuta to Haa
+    .replace(/ة/g, "ه")
+    // Normalize Alef Maksura to Yaa
+    .replace(/ى/g, "ي")
+    // Remove extra whitespace
+    .replace(/\s+/g, " ");
+}
+
+// Simple Levenshtein distance for fuzzy matching
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
+// Check if answer is correct with fuzzy matching
+function isAnswerCorrect(userAnswer: string, correctAnswer: string): boolean {
+  const normalizedUser = normalizeText(userAnswer);
+  const normalizedCorrect = normalizeText(correctAnswer);
+  
+  // Exact match after normalization
+  if (normalizedUser === normalizedCorrect) return true;
+  
+  // Allow tolerance based on word length (1-2 character difference)
+  const maxLength = Math.max(normalizedUser.length, normalizedCorrect.length);
+  const tolerance = maxLength <= 5 ? 1 : 2;
+  const distance = levenshteinDistance(normalizedUser, normalizedCorrect);
+  
+  return distance <= tolerance;
+}
+
 type QuizScreenRouteProp = RouteProp<HomeStackParamList, "Quiz">;
 
 type QuizPhase = "input" | "quiz";
@@ -350,6 +415,7 @@ export default function QuizScreen() {
   const [hasSourceText, setHasSourceText] = useState(false);
   const [showScoreCard, setShowScoreCard] = useState(false);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
+  const [shortAnswerInputs, setShortAnswerInputs] = useState<Map<number, string>>(new Map());
 
   useEffect(() => {
     const sourceText = route.params?.sourceText;
@@ -482,7 +548,11 @@ export default function QuizScreen() {
   const handleSelectAnswer = (questionIndex: number, answer: string) => {
     if (answeredQuestions.has(questionIndex)) return;
     
-    const isCorrect = answer === questions[questionIndex]?.correctAnswer;
+    const question = questions[questionIndex];
+    // Use fuzzy matching for short answer, exact match for others
+    const isCorrect = question?.type === "shortAnswer" 
+      ? isAnswerCorrect(answer, question.correctAnswer)
+      : answer === question?.correctAnswer;
     
     setSelectedAnswers(prev => {
       const newMap = new Map(prev);
@@ -640,9 +710,35 @@ export default function QuizScreen() {
               style={[styles.shortAnswerInput, { color: theme.text, borderColor: theme.border }]}
               placeholder={t("typeAnswer")}
               placeholderTextColor={theme.textSecondary}
-              onSubmitEditing={(e) => handleSelectAnswer(index, e.nativeEvent.text)}
+              value={shortAnswerInputs.get(index) || ""}
+              onChangeText={(text) => {
+                setShortAnswerInputs(prev => {
+                  const newMap = new Map(prev);
+                  newMap.set(index, text);
+                  return newMap;
+                });
+              }}
+              onSubmitEditing={() => {
+                const answer = shortAnswerInputs.get(index) || "";
+                if (answer.trim()) handleSelectAnswer(index, answer);
+              }}
               editable={!isAnswered}
+              returnKeyType="done"
             />
+            {!isAnswered && (
+              <Pressable
+                style={[styles.checkAnswerButton, { backgroundColor: theme.primary }]}
+                onPress={() => {
+                  const answer = shortAnswerInputs.get(index) || "";
+                  if (answer.trim()) handleSelectAnswer(index, answer);
+                }}
+              >
+                <Feather name="check" size={16} color="#FFFFFF" />
+                <ThemedText style={styles.checkAnswerText}>
+                  {isRTL ? "تحقق" : "Check"}
+                </ThemedText>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -1070,6 +1166,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: BorderRadius.xs,
     minHeight: 44,
+  },
+  checkAnswerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.xs,
+    marginTop: Spacing.sm,
+    gap: 6,
+  },
+  checkAnswerText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   answerContainer: {
     marginTop: Spacing.md,

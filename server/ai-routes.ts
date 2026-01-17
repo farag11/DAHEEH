@@ -192,13 +192,13 @@ Text to base questions on:
 ${text}`;
         }
 
-        return `You are an exam generator. Your task is to generate EXACTLY ${targetCount} practice questions.
+        return `You are an exam generator. OUTPUT JSON ONLY. No introductory text, no markdown, no explanations.
 
 CRITICAL INSTRUCTIONS:
-- You MUST generate EXACTLY ${targetCount} questions. Not less, not more.
-- Generate approximately: ${distribution}
-- Do NOT stop early. Generate all ${targetCount} questions.
-- Return a JSON array with exactly ${targetCount} elements.
+- Generate EXACTLY ${targetCount} questions. Not less, not more.
+- Distribution: ${distribution}
+- Use concise keys: q (question), o (options), a (correctAnswer), e (explanation), t (type).
+- Return minified JSON array with ${targetCount} elements.
 
 PHRASING RULES:
 - Do NOT refer to the input text as "The Summary", "الملخص", or "the passage".
@@ -231,7 +231,14 @@ ${text}`;
       const normalizeQuestion = (q: any): any => {
         if (!q || typeof q !== "object") return q;
         
-        const normalized = { ...q };
+        // Map concise keys to full keys if present
+        const normalized: any = {
+          question: q.question || q.q || "",
+          options: q.options || q.o || [],
+          correctAnswer: q.correctAnswer || q.a || "",
+          explanation: q.explanation || q.e || "",
+          type: q.type || q.t || "mcq",
+        };
         
         if (normalized.type === "trueFalse") {
           normalized.options = ["صح", "خطأ"];
