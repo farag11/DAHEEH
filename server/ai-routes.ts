@@ -454,7 +454,9 @@ ${text}`;
         ? `Explain the concept: "${concept}"`
         : "Identify the concept or topic shown in the image(s) and explain it.";
 
-      const prompt = `${levelDescriptions[explainLevel]}
+      const prompt = `CRITICAL LANGUAGE RULE: DETECT the language of the user's input. If the user writes in Arabic, you MUST respond entirely in Arabic. If the user writes in English, respond in English. Do NOT translate unless explicitly asked. Match the user's language exactly.
+
+${levelDescriptions[explainLevel]}
 
 ${hasImages ? "First, analyze the image(s) to understand the concept being shown. Then:\n\n" : ""}${basePrompt}
 

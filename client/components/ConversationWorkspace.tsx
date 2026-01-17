@@ -46,9 +46,10 @@ interface ConversationWorkspaceProps {
   scrollViewRef?: React.RefObject<ScrollView | null>;
   contentContainerStyle?: object;
   children?: React.ReactNode;
+  onTestMe?: (messageContent: string) => void;
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, onTestMe }: { message: Message; onTestMe?: (content: string) => void }) {
   const { theme } = useTheme();
   const { isRTL } = useLanguage();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -84,6 +85,8 @@ function MessageBubble({ message }: { message: Message }) {
 
   const textColor = isUser ? "#FFFFFF" : isError ? theme.error : theme.text;
 
+  const showTestMe = !isUser && !isLoading && !isError && onTestMe && message.content.length > 50;
+
   return (
     <Animated.View
       style={[
@@ -115,6 +118,17 @@ function MessageBubble({ message }: { message: Message }) {
           >
             {isUser ? message.content : cleanMarkdown(message.content)}
           </ThemedText>
+          {showTestMe ? (
+            <Pressable
+              style={styles.messageBubbleTestMe}
+              onPress={() => onTestMe(message.content)}
+            >
+              <Feather name="edit-3" size={14} color={theme.primary} />
+              <ThemedText style={[styles.messageBubbleTestMeText, { color: theme.primary }]}>
+                {isRTL ? "اختبرني" : "Test Me"}
+              </ThemedText>
+            </Pressable>
+          ) : null}
         </>
       )}
     </Animated.View>
@@ -192,6 +206,7 @@ export function ConversationWorkspace({
   scrollViewRef,
   contentContainerStyle,
   children,
+  onTestMe,
 }: ConversationWorkspaceProps) {
   const internalRef = useRef<ScrollView>(null);
   const ref = scrollViewRef || internalRef;
@@ -220,7 +235,7 @@ export function ConversationWorkspace({
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
         {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble key={message.id} message={message} onTestMe={onTestMe} />
         ))}
         {children}
       </KeyboardAwareScrollViewCompat>
@@ -682,5 +697,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(95, 44, 130, 0.6)",
+  },
+  messageBubbleTestMe: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    gap: 4,
+  },
+  messageBubbleTestMeText: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

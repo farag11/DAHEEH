@@ -341,6 +341,10 @@ export default function ExplainScreen() {
     }
   };
 
+  const handleTestMeWithContent = (content: string) => {
+    navigation.navigate("Quiz", { sourceText: content });
+  };
+
   const isProcessing = isLoading || isImageLoading;
 
   const showConversation = !showInput && messages.length > 0;
@@ -363,6 +367,7 @@ export default function ExplainScreen() {
                 paddingBottom: FOLLOW_UP_INPUT_HEIGHT + Spacing.lg,
                 paddingHorizontal: Spacing.lg,
               }}
+              onTestMe={handleTestMeWithContent}
             >
               {!isLoading && lastExplanation ? (
                 <View style={styles.actionsContainer}>

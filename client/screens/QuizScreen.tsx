@@ -416,12 +416,16 @@ export default function QuizScreen() {
   const [showScoreCard, setShowScoreCard] = useState(false);
   const [isGeneratingMore, setIsGeneratingMore] = useState(false);
   const [shortAnswerInputs, setShortAnswerInputs] = useState<Map<number, string>>(new Map());
+  const [additionalInstructions, setAdditionalInstructions] = useState("");
+  const [isSourceExpanded, setIsSourceExpanded] = useState(false);
+  const [isSourceEditing, setIsSourceEditing] = useState(false);
 
   useEffect(() => {
     const sourceText = route.params?.sourceText;
     if (sourceText && sourceText.trim()) {
       setText(sourceText.trim());
       setHasSourceText(true);
+      setIsSourceEditing(false); // Ensure read-only mode when source comes from params
     }
   }, [route.params]);
 
@@ -504,8 +508,15 @@ export default function QuizScreen() {
       }
 
       setLastSourceText(combinedText || "[Image Content]");
+      
+      // Combine source text with additional instructions if provided
+      let promptText = combinedText || "";
+      if (!generateMore && additionalInstructions.trim()) {
+        promptText = `${combinedText}\n\n[Additional Instructions: ${additionalInstructions.trim()}]`;
+      }
+      
       const batchCount = generateMore ? 10 : questionCount;
-      const generatedQuestions = await generateQuestions(combinedText || "", questionTypes, batchCount, base64Images);
+      const generatedQuestions = await generateQuestions(promptText, questionTypes, batchCount, base64Images);
       setIsProcessingOCR(false);
       
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -837,53 +848,136 @@ export default function QuizScreen() {
 
           <ReanimatedAnimated.View entering={FadeInDown.delay(300).springify().damping(12).mass(0.8)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
-              <ThemedText style={[styles.label, isRTL && styles.rtlText]}>{t("enterText")}</ThemedText>
-            <View style={styles.textInputWrapper}>
+              <View style={[styles.sourceHeader, isRTL && styles.rtl]}>
+                <ThemedText style={[styles.label, isRTL && styles.rtlText]}>
+                  {isRTL ? "المحتوى المصدر" : "Source Context"}
+                </ThemedText>
+                {hasSourceText && !isSourceEditing && (
+                  <Pressable
+                    style={[styles.sourceEditButton, { backgroundColor: theme.primary + "20" }]}
+                    onPress={() => setIsSourceEditing(true)}
+                  >
+                    <Feather name="edit-2" size={14} color={theme.primary} />
+                    <ThemedText style={[styles.sourceEditButtonText, { color: theme.primary }]}>
+                      {isRTL ? "تعديل" : "Edit"}
+                    </ThemedText>
+                  </Pressable>
+                )}
+              </View>
+              
+              {hasSourceText && !isSourceEditing ? (
+                <View style={[styles.sourcePreviewContainer, { backgroundColor: theme.inputBackground }]}>
+                  <ThemedText 
+                    style={[styles.sourcePreviewText, { color: theme.text }, isRTL && styles.rtlText]}
+                    numberOfLines={isSourceExpanded ? undefined : 3}
+                  >
+                    {text}
+                  </ThemedText>
+                  {text.split('\n').length > 3 || text.length > 200 ? (
+                    <Pressable
+                      style={styles.expandButton}
+                      onPress={() => setIsSourceExpanded(!isSourceExpanded)}
+                    >
+                      <ThemedText style={[styles.expandButtonText, { color: theme.primary }]}>
+                        {isSourceExpanded 
+                          ? (isRTL ? "إظهار أقل" : "Show Less")
+                          : (isRTL ? "إظهار المزيد" : "Show More")
+                        }
+                      </ThemedText>
+                      <Feather 
+                        name={isSourceExpanded ? "chevron-up" : "chevron-down"} 
+                        size={16} 
+                        color={theme.primary} 
+                      />
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={styles.textInputWrapper}>
+                  <TextInput
+                    style={[
+                      styles.textInput,
+                      {
+                        backgroundColor: theme.inputBackground,
+                        color: theme.text,
+                        textAlign: isRTL ? "right" : "left",
+                      },
+                    ]}
+                    placeholder={isRTL ? "أدخل النص للاختبار..." : "Enter text to quiz..."}
+                    placeholderTextColor={theme.textSecondary}
+                    multiline
+                    numberOfLines={6}
+                    maxLength={3000}
+                    value={text}
+                    onChangeText={setText}
+                    textAlignVertical="top"
+                    onFocus={checkClipboardForImage}
+                  />
+                  <ClipboardImageBadge
+                    visible={hasClipboardImage}
+                    onPress={async () => {
+                      const success = await pasteDetectedImage();
+                      if (success) {
+                        toast.show(t("imagePasted"), "success");
+                      }
+                    }}
+                    isLoading={isImageLoading}
+                  />
+                </View>
+              )}
+              
+              {isSourceEditing && (
+                <Pressable
+                  style={[styles.doneEditingButton, { backgroundColor: theme.success + "20" }]}
+                  onPress={() => {
+                    setIsSourceEditing(false);
+                    if (text.trim()) setHasSourceText(true);
+                  }}
+                >
+                  <Feather name="check" size={14} color={theme.success} />
+                  <ThemedText style={[styles.sourceEditButtonText, { color: theme.success }]}>
+                    {isRTL ? "تم" : "Done"}
+                  </ThemedText>
+                </Pressable>
+              )}
+
+              <View style={styles.imageSection}>
+                <ImageActionBar
+                  onCameraPress={takePhoto}
+                  onGalleryPress={pickFromGallery}
+                  disabled={isLoading || isProcessingOCR}
+                  isLoading={isImageLoading}
+                />
+                <ImagePreviewList
+                  images={images}
+                  onRemove={removeImage}
+                  isScanning={isProcessingOCR}
+                  scanningText={t("analyzing")}
+                />
+              </View>
+            </View>
+          </ReanimatedAnimated.View>
+
+          <ReanimatedAnimated.View entering={FadeInDown.delay(350).springify().damping(12).mass(0.8)}>
+            <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
+              <ThemedText style={[styles.label, isRTL && styles.rtlText]}>
+                {isRTL ? "تعليمات إضافية (اختياري)" : "Additional Instructions (Optional)"}
+              </ThemedText>
               <TextInput
                 style={[
-                  styles.textInput,
+                  styles.instructionsInput,
                   {
                     backgroundColor: theme.inputBackground,
                     color: theme.text,
                     textAlign: isRTL ? "right" : "left",
                   },
                 ]}
-                placeholder={t("enterText")}
+                placeholder={isRTL ? 'مثال: "ركز على التعريفات" أو "اجعلها صعبة"' : 'e.g. "Focus on definitions" or "Make it hard"'}
                 placeholderTextColor={theme.textSecondary}
-                multiline
-                numberOfLines={6}
-                maxLength={3000}
-                value={text}
-                onChangeText={setText}
-                textAlignVertical="top"
-                onFocus={checkClipboardForImage}
+                value={additionalInstructions}
+                onChangeText={setAdditionalInstructions}
+                maxLength={200}
               />
-              <ClipboardImageBadge
-                visible={hasClipboardImage}
-                onPress={async () => {
-                  const success = await pasteDetectedImage();
-                  if (success) {
-                    toast.show(t("imagePasted"), "success");
-                  }
-                }}
-                isLoading={isImageLoading}
-              />
-            </View>
-
-            <View style={styles.imageSection}>
-              <ImageActionBar
-                onCameraPress={takePhoto}
-                onGalleryPress={pickFromGallery}
-                disabled={isLoading || isProcessingOCR}
-                isLoading={isImageLoading}
-              />
-              <ImagePreviewList
-                images={images}
-                onRemove={removeImage}
-                isScanning={isProcessingOCR}
-                scanningText={t("analyzing")}
-              />
-            </View>
             </View>
           </ReanimatedAnimated.View>
 
@@ -1357,5 +1451,57 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "500",
+  },
+  sourceHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  sourceEditButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.xs,
+    gap: 4,
+  },
+  sourceEditButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  doneEditingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.xs,
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
+  sourcePreviewContainer: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.md,
+  },
+  sourcePreviewText: {
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  expandButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.sm,
+    gap: 4,
+  },
+  expandButtonText: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  instructionsInput: {
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    fontSize: 14,
   },
 });
