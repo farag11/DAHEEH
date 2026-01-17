@@ -10,7 +10,7 @@ export const deepseekClient = deepseekApiKey
   ? new OpenAI({
       baseURL: "https://api.deepseek.com",
       apiKey: deepseekApiKey,
-      timeout: 60000,
+      timeout: 90000,
     })
   : null;
 

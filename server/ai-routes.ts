@@ -126,7 +126,7 @@ export function registerAIRoutes(app: Express): void {
       const questionTypes = Array.isArray(types) 
         ? types.filter((t: string) => validTypes.includes(t)) 
         : ["mcq"];
-      const questionCount = typeof count === "number" && count > 0 && count <= 20 ? count : 5;
+      const questionCount = typeof count === "number" && count > 0 && count <= 25 ? count : 10;
 
       console.log(`[Quiz API] Received request - types: ${JSON.stringify(questionTypes)}, count: ${questionCount}`);
 
@@ -199,6 +199,11 @@ CRITICAL INSTRUCTIONS:
 - Generate approximately: ${distribution}
 - Do NOT stop early. Generate all ${targetCount} questions.
 - Return a JSON array with exactly ${targetCount} elements.
+
+PHRASING RULES:
+- Do NOT refer to the input text as "The Summary", "الملخص", or "the passage".
+- Instead, quote the text directly or refer to it as "the text" (النص) or "the phrase" (العبارة).
+- Example: Ask "ما معنى كلمة 'تحليل'؟" instead of "ما معنى الملخص؟"
 
 STRICT TYPE-SPECIFIC FORMAT REQUIREMENTS (FOLLOW EXACTLY):
 ${typeInstructions}
@@ -292,7 +297,7 @@ ${text}`;
               messages: [{ role: "user", content: messageContent }],
               max_tokens: 8192,
             },
-            { timeout: 60000 }
+            { timeout: 90000 }
           );
 
           const responseText = completion.choices[0]?.message?.content || "";
