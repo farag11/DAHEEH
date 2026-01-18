@@ -7,20 +7,22 @@ import { Platform } from "react-native";
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  // Always use the configured public domain for API requests
-  const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
+  // Production API URL
+  const PRODUCTION_API = "https://daheeh.onrender.com";
   
+  // Allow override via environment variable for development
+  const publicDomain = process.env.EXPO_PUBLIC_DOMAIN;
   if (publicDomain) {
     return publicDomain;
   }
-
-  // For web, use window.location
+  
+  // For web in browser, use current origin (works for dev/prod)
   if (Platform.OS === "web" && typeof window !== "undefined") {
     return window.location.origin;
   }
 
-  // Fallback to production URL
-  return "https://daheeh.onrender.com";
+  // For mobile (iOS/Android), use production API
+  return PRODUCTION_API;
 }
 
 async function throwIfResNotOk(res: Response) {
