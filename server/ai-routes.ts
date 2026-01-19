@@ -73,6 +73,7 @@ export function registerAIRoutes(app: Express): void {
       const { text, complexity, count, images } = req.body;
 
       const hasImages = Array.isArray(images) && images.length > 0;
+      console.log(`[Summarize API] Request - text: ${text?.length || 0} chars, images: ${hasImages ? images.length : 0}, complexity: ${complexity}`);
 
       if (!text && !hasImages) {
         return res.status(400).json({ error: "Text or images required" });
