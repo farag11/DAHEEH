@@ -83,35 +83,27 @@ export function registerAIRoutes(app: Express): void {
 
       const userRequestedCount = typeof count === "number" && count > 0 ? count : null;
 
-      let finalText = text || "";
+      let summary: string | null;
+      let provider: string;
 
-      // If images are provided, use Gemini to analyze them and extract text
+      // If images are provided, use Gemini 2.0 Flash for direct vision summarization
       if (hasImages) {
-        const imageDescriptions: string[] = [];
-        for (const image of images) {
-          try {
-            const description = await generateImageDescription(
-              image,
-              "Extract and describe all text, diagrams, and educational content from this image in detail."
-            );
-            imageDescriptions.push(description);
-          } catch (error) {
-            console.error("Error analyzing image:", error);
-          }
-        }
-
-        if (imageDescriptions.length > 0) {
-          finalText += "\n\nImage Analysis:\n" + imageDescriptions.join("\n\n");
-        }
+        const { summarizeWithVision } = await import("./services/aiService");
+        summary = await summarizeWithVision(text || "", images, {
+          complexity: level as "simple" | "detailed" | "comprehensive",
+          count: userRequestedCount || undefined,
+        });
+        provider = "gemini-vision";
+      } else {
+        // Text-only: use DeepSeek for summary
+        summary = await generateSummary(text, {
+          complexity: level as "simple" | "detailed" | "comprehensive",
+          count: userRequestedCount || undefined,
+        });
+        provider = "deepseek";
       }
 
-      // Use DeepSeek to generate the summary
-      const summary = await generateSummary(finalText, {
-        complexity: level as "simple" | "detailed" | "comprehensive",
-        count: userRequestedCount || undefined,
-      });
-
-      res.json({ summary, provider: "deepseek", visionUsed: hasImages });
+      res.json({ summary, provider, visionUsed: hasImages });
     } catch (error: any) {
       console.error("Summarize error:", error);
       res.status(500).json({ error: error.message || "Failed to generate summary" });

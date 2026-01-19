@@ -46,16 +46,30 @@ export async function generateSummary(
   try {
     const { complexity = 'detailed', count } = options;
 
-    let prompt = `Please summarize the following text`;
+    const systemPrompt = `CRITICAL LANGUAGE RULE: Detect the language of the input. If the input is in Arabic, respond ENTIRELY in Arabic. If in English, respond in English. NEVER translate.
+
+You are a concise summarizer. Your goal is to extract KEY POINTS ONLY.
+
+Rules:
+- Use bullet points (•)
+- Keep it under 150 words unless asked otherwise
+- No long introductions or conclusions
+- Be direct and to the point
+- Match the complexity level requested`;
+
+    let userPrompt = `Summarize this with ${complexity} detail`;
     if (count) {
-      prompt += ` in exactly ${count} main bullet points`;
+      userPrompt += ` in exactly ${count} bullet points`;
     }
-    prompt += ` with a ${complexity} level of detail:\n\n${text}`;
+    userPrompt += `:\n\n${text}`;
 
     const completion = await deepseekClient.chat.completions.create({
       model: "deepseek-reasoner",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 8192,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 2048,
     });
 
     return completion.choices[0]?.message?.content || "";
@@ -63,6 +77,75 @@ export async function generateSummary(
     console.error('DeepSeek summary generation error:', error);
     throw new Error('Failed to generate summary with DeepSeek');
   }
+}
+
+/**
+ * Summarizes content with vision support using Gemini 2.0 Flash
+ * Handles both text and images directly
+ */
+export async function summarizeWithVision(
+  text: string,
+  images: string[],
+  options: {
+    complexity?: 'simple' | 'detailed' | 'comprehensive';
+    count?: number;
+  } = {}
+): Promise<string> {
+  if (!genAI) {
+    throw new Error("Gemini API key is not configured");
+  }
+
+  const { complexity = 'detailed', count } = options;
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+  const systemPrompt = `CRITICAL LANGUAGE RULE: Detect the language of ANY text in the images or input. If the text is in Arabic, respond ENTIRELY in Arabic. If in English, respond in English. NEVER translate.
+
+You are a concise summarizer. Your goal is to extract KEY POINTS ONLY from the provided content (text and/or images).
+
+Rules:
+- First, read and understand ALL text visible in the images
+- Use bullet points (•)
+- Keep it under 150 words unless asked otherwise
+- No long introductions or conclusions
+- Be direct and to the point
+- If images contain educational content, summarize the main concepts
+- Match the complexity level: ${complexity}`;
+
+  let userPrompt = `Summarize this content`;
+  if (count) {
+    userPrompt += ` in exactly ${count} bullet points`;
+  }
+  if (text && text.trim()) {
+    userPrompt += `:\n\n${text}`;
+  } else {
+    userPrompt += `. Analyze the image(s) and summarize the key points.`;
+  }
+
+  const parts: any[] = [systemPrompt + "\n\n" + userPrompt];
+
+  for (const imageData of images) {
+    if (imageData.startsWith('data:')) {
+      const base64Data = imageData.split(',')[1];
+      const mimeType = imageData.split(':')[1].split(';')[0];
+      parts.push({
+        inlineData: {
+          data: base64Data,
+          mimeType: mimeType,
+        },
+      });
+    } else {
+      parts.push({
+        inlineData: {
+          data: imageData,
+          mimeType: 'image/png',
+        },
+      });
+    }
+  }
+
+  const result = await model.generateContent(parts);
+  const response = await result.response;
+  return response.text();
 }
 
 /**
