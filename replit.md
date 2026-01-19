@@ -65,15 +65,27 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features
 1.  **Text Summarization**: Converts texts to summaries with adjustable complexity.
-2.  **Question Generation**: Creates MCQ, True/False, and short answer questions.
+2.  **Question Generation**: Creates MCQ, True/False, and short answer questions. Supports text files (.txt, .md) upload.
 3.  **Concept Explanation**: Provides explanations at various difficulty levels.
 4.  **Study Planning**: Generates personalized study schedules.
 5.  **Library**: Manages saved summaries, questions, and study plans; supports collections.
 6.  **Progress Tracking**: Tracks study metrics and history.
 7.  **Authentication**: Local, offline-first email/password authentication with SHA256 hashing, Google Sign-In (expo-auth-session), and guest mode.
-8.  **Conversational AI**: Chat-style interface with follow-up questions and message history.
+8.  **Conversational AI**: Chat-style interface with follow-up questions and message history. Chat history persists locally for 24 hours.
 9.  **Multimodal Vision**: Direct image analysis - AI models analyze images directly without OCR preprocessing for better accuracy.
 10. **Gamification System**: XP/leveling/streaks/ranks to motivate consistent study habits.
+
+### Chat Persistence
+- **Storage**: AsyncStorage with 24-hour expiry
+- **Screens**: SummarizeScreen and ExplainScreen
+- **Data Persisted**: Messages, originalContent, lastSummary/lastExplanation, lastResponseId
+- **Behavior**: Auto-loads on screen mount, auto-saves on state changes, clears on "New" action
+
+### Document Input Support
+- **Hook**: `client/hooks/useDocumentInput.ts`
+- **Supported Formats**: Text files only (.txt, .md, .csv, .html, .xml, .json)
+- **Limitation**: PDF/DOC/DOCX not supported (requires server-side parsing)
+- **Integration**: QuizScreen, SummarizeScreen, ExplainScreen via ImageActionBar file button
 
 ### Gamification System
 - **Location**: `client/contexts/GamificationContext.tsx`

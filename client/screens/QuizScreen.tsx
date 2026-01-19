@@ -33,9 +33,11 @@ import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { generateQuestions, hasApiKey, QuestionType, GeneratedQuestion } from "@/services/aiService";
 import { useImageInput } from "@/hooks/useImageInput";
+import { useDocumentInput } from "@/hooks/useDocumentInput";
 import { ImageActionBar } from "@/components/ImageActionBar";
 import { ImagePreviewList } from "@/components/ImagePreviewList";
 import { ClipboardImageBadge } from "@/components/ClipboardImageBadge";
+import { DocumentBadge } from "@/components/DocumentBadge";
 import { GlassButton, GlassPrimaryButton } from "@/components/GlassButton";
 import type { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 
@@ -443,6 +445,24 @@ export default function QuizScreen() {
     pasteDetectedImage,
   } = useImageInput();
 
+  const {
+    document: attachedDocument,
+    pickDocument,
+    removeDocument,
+    clearDocument,
+    getDocumentText,
+    isUnsupportedFormat,
+  } = useDocumentInput();
+
+  useEffect(() => {
+    if (isUnsupportedFormat) {
+      toast.show(
+        isRTL ? "صيغة غير مدعومة - يرجى استخدام ملفات نصية (.txt, .md)" : "Unsupported format - please use text files (.txt, .md)",
+        "error"
+      );
+    }
+  }, [isUnsupportedFormat]);
+
   const typeOptions: { key: QuestionType; label: string }[] = [
     { key: "mcq", label: t("multipleChoice") },
     { key: "trueFalse", label: t("trueFalse") },
@@ -470,7 +490,10 @@ export default function QuizScreen() {
   };
 
   const handleGenerate = async (generateMore = false) => {
-    if (!generateMore && !text.trim() && images.length === 0) {
+    const hasDocument = !!attachedDocument;
+    const documentText = getDocumentText();
+    
+    if (!generateMore && !text.trim() && images.length === 0 && !hasDocument) {
       toast.show(t("provideStudyText"), "error");
       return;
     }
@@ -494,6 +517,14 @@ export default function QuizScreen() {
 
     try {
       let combinedText = generateMore ? lastSourceText : text.trim();
+      const documentText = getDocumentText();
+      
+      if (!generateMore && documentText) {
+        combinedText = combinedText 
+          ? `${combinedText}\n\n--- Document Content ---\n${documentText}`
+          : documentText;
+      }
+      
       const base64Images = (!generateMore && images.length > 0) ? getBase64Images() : undefined;
 
       if (base64Images) {
@@ -542,6 +573,7 @@ export default function QuizScreen() {
       
       if (!generateMore) {
         clearImages();
+        clearDocument();
         setText("");
         setQuizPhase("quiz");
       }
@@ -945,6 +977,7 @@ export default function QuizScreen() {
                 <ImageActionBar
                   onCameraPress={takePhoto}
                   onGalleryPress={pickFromGallery}
+                  onFilePress={pickDocument}
                   disabled={isLoading || isProcessingOCR}
                   isLoading={isImageLoading}
                 />
@@ -954,6 +987,15 @@ export default function QuizScreen() {
                   isScanning={isProcessingOCR}
                   scanningText={t("analyzing")}
                 />
+                {attachedDocument ? (
+                  <View style={styles.documentSection}>
+                    <DocumentBadge
+                      fileName={attachedDocument.name}
+                      onRemove={removeDocument}
+                      disabled={isLoading || isProcessingOCR}
+                    />
+                  </View>
+                ) : null}
               </View>
             </View>
           </ReanimatedAnimated.View>
@@ -1157,6 +1199,9 @@ const styles = StyleSheet.create({
   imageSection: {
     marginTop: Spacing.md,
     gap: Spacing.md,
+  },
+  documentSection: {
+    marginTop: Spacing.sm,
   },
   ocrLoadingContainer: {
     flexDirection: "row",

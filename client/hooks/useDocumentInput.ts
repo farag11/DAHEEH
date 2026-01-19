@@ -21,14 +21,31 @@ interface UseDocumentInputReturn {
   clearDocument: () => void;
   getDocumentText: () => string | undefined;
   isDisabled: boolean;
+  isUnsupportedFormat: boolean;
 }
 
-async function readTextContent(uri: string, mimeType: string): Promise<string | undefined> {
-  const isTextFile = mimeType === "text/plain" || 
-                     mimeType === "text/markdown" || 
-                     mimeType?.includes("text");
+const SUPPORTED_TYPES = [
+  "text/plain",
+  "text/markdown", 
+  "text/csv",
+  "text/html",
+  "text/xml",
+  "application/json",
+];
+
+const SUPPORTED_EXTENSIONS = [".txt", ".md", ".csv", ".html", ".xml", ".json"];
+
+function isTextReadable(mimeType: string, fileName: string): boolean {
+  const normalizedMime = mimeType?.toLowerCase() || "";
+  const extension = fileName?.toLowerCase().split('.').pop() || "";
   
-  if (!isTextFile) {
+  return SUPPORTED_TYPES.some(t => normalizedMime.includes(t)) || 
+         SUPPORTED_EXTENSIONS.some(ext => fileName?.toLowerCase().endsWith(ext)) ||
+         normalizedMime.includes("text");
+}
+
+async function readTextContent(uri: string, mimeType: string, fileName: string): Promise<string | undefined> {
+  if (!isTextReadable(mimeType, fileName)) {
     return undefined;
   }
 
@@ -46,6 +63,7 @@ export function useDocumentInput(): UseDocumentInputReturn {
   const [document, setDocument] = useState<DocumentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUnsupportedFormat, setIsUnsupportedFormat] = useState(false);
 
   const isDisabled = authMode === "guest";
 
@@ -54,11 +72,12 @@ export function useDocumentInput(): UseDocumentInputReturn {
 
     setIsLoading(true);
     setError(null);
+    setIsUnsupportedFormat(false);
     haptics.lightTap();
     
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
+        type: ["text/*", "application/json"],
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -67,7 +86,13 @@ export function useDocumentInput(): UseDocumentInputReturn {
         const asset = result.assets[0];
         const mimeType = asset.mimeType || "application/octet-stream";
         
-        const textContent = await readTextContent(asset.uri, mimeType);
+        const textContent = await readTextContent(asset.uri, mimeType, asset.name);
+        
+        if (!textContent) {
+          setIsUnsupportedFormat(true);
+          haptics.error();
+          return false;
+        }
         
         setDocument({
           uri: asset.uri,
@@ -114,5 +139,6 @@ export function useDocumentInput(): UseDocumentInputReturn {
     clearDocument,
     getDocumentText,
     isDisabled,
+    isUnsupportedFormat,
   };
 }

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { View, StyleSheet, Pressable, TextInput, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useHeaderHeight } from "@/components/Header";
 import { useFloatingDockHeight } from "@/navigation/MainTabNavigator";
@@ -32,6 +33,8 @@ import type { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 type Level = "beginner" | "intermediate" | "advanced";
 type ExplainScreenRouteProp = RouteProp<HomeStackParamList, "Explain">;
 
+const CHAT_HISTORY_KEY = "@chat_history_explain";
+
 export default function ExplainScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
@@ -56,6 +59,55 @@ export default function ExplainScreen() {
   const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
   const [originalContent, setOriginalContent] = useState<string | null>(null);
   const [showAddToCollection, setShowAddToCollection] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+        if (stored) {
+          const data = JSON.parse(stored);
+          const storedDate = new Date(data.timestamp);
+          const now = new Date();
+          const hoursDiff = (now.getTime() - storedDate.getTime()) / (1000 * 60 * 60);
+          
+          if (hoursDiff < 24 && data.messages && data.messages.length > 0) {
+            const validMessages = data.messages.filter((m: Message) => m.type !== "loading");
+            setMessages(validMessages);
+            setOriginalContent(data.originalContent || null);
+            setLastExplanation(data.lastExplanation || null);
+            setLastExplanationId(data.lastExplanationId || null);
+            setShowInput(validMessages.length === 0);
+          }
+        }
+      } catch (error) {}
+      setHistoryLoaded(true);
+    };
+    loadChatHistory();
+  }, []);
+
+  useEffect(() => {
+    if (!historyLoaded) return;
+    
+    const saveChatHistory = async () => {
+      try {
+        const validMessages = messages.filter(m => m.type !== "loading");
+        if (validMessages.length === 0) {
+          await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+          return;
+        }
+        const data = {
+          messages: validMessages,
+          originalContent,
+          lastExplanation,
+          lastExplanationId,
+          timestamp: new Date().toISOString(),
+        };
+        await AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(data));
+      } catch (error) {}
+    };
+    saveChatHistory();
+  }, [messages, originalContent, lastExplanation, lastExplanationId, historyLoaded]);
 
   useEffect(() => {
     const sessionId = route.params?.sessionId;
@@ -250,7 +302,7 @@ export default function ExplainScreen() {
     }
   };
 
-  const handleNewExplanation = () => {
+  const handleNewExplanation = async () => {
     setMessages([]);
     setShowInput(true);
     setLastExplanation(null);
@@ -260,6 +312,9 @@ export default function ExplainScreen() {
     setIsFollowUpLoading(false);
     clearDocument();
     clearImages();
+    try {
+      await AsyncStorage.removeItem(CHAT_HISTORY_KEY);
+    } catch (error) {}
   };
 
   const handleAddToCollection = () => {
