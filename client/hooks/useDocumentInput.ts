@@ -76,14 +76,14 @@ export function useDocumentInput(): UseDocumentInputReturn {
           size: asset.size,
           textContent,
         });
-        haptics.successNotification();
+        haptics.success();
         return true;
       }
       return false;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to pick document";
       setError(errorMessage);
-      haptics.errorNotification();
+      haptics.error();
       return false;
     } finally {
       setIsLoading(false);
