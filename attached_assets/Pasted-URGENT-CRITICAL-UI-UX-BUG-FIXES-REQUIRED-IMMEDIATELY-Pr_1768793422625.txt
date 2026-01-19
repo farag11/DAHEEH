@@ -1,0 +1,289 @@
+URGENT: CRITICAL UI/UX BUG FIXES REQUIRED IMMEDIATELY
+
+Priority: HIGHEST | Status: EMERGENCY | Action: APPLY ALL FIXES NOW
+
+---
+
+FIX 1: "TEST ME" CONTEXT LOGIC BUG - CRITICAL
+
+Files to modify:
+
+1. client/screens/ConceptExplainerScreen.tsx
+2. client/screens/TextSummarizerScreen.tsx
+
+Problem:
+
+"Test Me" button uses unreliable state variables instead of direct item content.
+
+Exact code changes required:
+
+For ConceptExplainerScreen.tsx:
+
+```tsx
+// INSIDE FlatList renderItem function:
+
+// ❌ DELETE THIS CODE (if exists):
+onPress={() => navigation.navigate('QuestionGenerator', { 
+  text: currentExplanation || item.text 
+})}
+
+// ✅ REPLACE WITH THIS EXACT CODE:
+onPress={() => navigation.navigate('QuestionGenerator', { 
+  text: item.content // USE item.content DIRECTLY
+})}
+```
+
+For TextSummarizerScreen.tsx:
+
+```tsx
+// INSIDE FlatList renderItem function:
+
+// ❌ DELETE THIS CODE (if exists):
+onPress={() => navigation.navigate('QuestionGenerator', { 
+  text: currentSummary || item.text 
+})}
+
+// ✅ REPLACE WITH THIS EXACT CODE:
+onPress={() => navigation.navigate('QuestionGenerator', { 
+  text: item.text // USE item.text DIRECTLY
+})}
+```
+
+Verification:
+
+· Check that item has content or text property
+· Test that pressing button passes correct text
+· No TypeScript errors allowed
+
+---
+
+FIX 2: HEADER OVERLAP BUG - UI BLOCKER
+
+Files to modify:
+
+ALL main screens:
+
+· client/screens/TextSummarizerScreen.tsx
+· client/screens/ConceptExplainerScreen.tsx
+· client/screens/QuestionGeneratorScreen.tsx
+· client/screens/ProfileScreen.tsx
+
+Problem:
+
+Header covers first line of content on all screens.
+
+Exact code changes required:
+
+Step 1: Modify Header component (if separate file):
+
+```tsx
+// In Header component styles:
+const styles = StyleSheet.create({
+  headerContainer: {
+    position: 'absolute',    // REQUIRED
+    top: 0,                  // REQUIRED
+    left: 0,
+    right: 0,
+    zIndex: 100,             // REQUIRED - high value
+    backgroundColor: '#ffffff',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    height: 100,             // Fixed height for consistency
+  },
+});
+```
+
+Step 2: Add paddingTop to ALL screens:
+
+For EACH screen file, modify the main container style:
+
+```tsx
+// In EACH screen's styles object, add:
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: 100,         // REQUIRED: 100px minimum
+    paddingHorizontal: 16,
+    backgroundColor: '#f5f5f5',
+  },
+  
+  // OR if using ScrollView:
+  scrollView: {
+    flex: 1,
+    paddingTop: 100,         // REQUIRED
+  },
+  contentContainer: {
+    paddingBottom: 120,      // Add bottom padding for nav bar
+  },
+});
+```
+
+Step 3: Apply this pattern to EVERY screen:
+
+```tsx
+// Example for TextSummarizerScreen.tsx:
+return (
+  <SafeAreaView style={styles.safeArea}>
+    <Header /> {/* This stays at top */}
+    
+    <ScrollView 
+      style={styles.scrollView}
+      contentContainerStyle={styles.contentContainer}
+    >
+      {/* Screen content starts here with 100px top padding */}
+      <Text>Your content here</Text>
+    </ScrollView>
+  </SafeAreaView>
+);
+```
+
+---
+
+FIX 3: NAVIGATION BAR BUG - LAYOUT BREAKING
+
+Files to modify:
+
+· client/components/NavigationBar.tsx (or main navigation component)
+· Any screen with floating navigation
+
+Problem:
+
+Floating capsule design breaks layout on different screen sizes.
+
+Exact code changes required:
+
+```tsx
+// REPLACE ENTIRE NavigationBar component styles with:
+
+const styles = StyleSheet.create({
+  // Main container - DOCKED BOTTOM BAR
+  navContainer: {
+    position: 'absolute',    // REQUIRED
+    bottom: 0,               // REQUIRED - dock to bottom
+    left: 0,                 // REQUIRED - start from left edge
+    right: 0,                // REQUIRED - span full width
+    width: '100%',           // REQUIRED - full width
+    borderRadius: 0,         // REQUIRED - no rounded corners
+    zIndex: 999,             // High z-index
+  },
+  
+  // Navigation bar background
+  navBar: {
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    paddingVertical: 12,
+    paddingBottom: 20,       // Extra padding for device bottoms
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    width: '100%',           // REQUIRED - full width
+    marginHorizontal: 0,     // REQUIRED - no horizontal margin
+  },
+  
+  // Navigation items container
+  navItems: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    maxWidth: 400,           // Optional: max width for items
+    alignSelf: 'center',
+  },
+  
+  // Individual nav item
+  navItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+});
+```
+
+Required structural change:
+
+```tsx
+// NavigationBar component return statement MUST be:
+return (
+  <View style={styles.navContainer}>
+    <View style={styles.navBar}>
+      <View style={styles.navItems}>
+        {/* Navigation items here */}
+        <TouchableOpacity style={styles.navItem}>{/* Home */}</TouchableOpacity>
+        <TouchableOpacity style={styles.navItem}>{/* Profile */}</TouchableOpacity>
+        {/* ... other items */}
+      </View>
+    </View>
+  </View>
+);
+```
+
+---
+
+FIX 4: SETTINGS BUTTON BUG - UNRESPONSIVE
+
+Files to modify:
+
+· client/screens/ProfileScreen.tsx
+
+Problem:
+
+Settings cog icon doesn't respond to touches.
+
+Exact code changes required:
+
+```tsx
+// Find the settings button TouchableOpacity in ProfileScreen.tsx
+// ADD these two props:
+
+<TouchableOpacity
+  // ... existing props ...
+  
+  // ADD THESE TWO PROPS:
+  hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}  // REQUIRED
+  style={[styles.settingsButton, { zIndex: 999 }]}         // REQUIRED
+  
+  // ... rest of code ...
+>
+  <Icon name="settings" size={24} color="#000" />
+</TouchableOpacity>
+```
+
+Additional verification:
+
+1. Ensure no other view is overlapping the button
+2. Check that onPress handler is properly connected
+3. Test on multiple device simulators
+
+---
+
+BUILD COMMAND:
+
+After applying ALL fixes, run:
+
+```bash
+npx expo export --platform web
+```
+
+VERIFICATION CHECKLIST:
+
+· Test "Test Me" button passes correct text
+· Header doesn't cover content on any screen
+· Navigation bar is docked at bottom on all devices
+· Settings button responds immediately to taps
+· No TypeScript compilation errors
+· No layout warnings in console
+
+IMMEDIATE ACTION REQUIRED:
+
+1. Copy this entire prompt
+2. Paste to Replit agent
+3. Apply ALL fixes sequentially
+4. Run build command
+5. Test thoroughly on web platform
+
+STATUS: URGENT - REQUIRES IMMEDIATE ATTENTION

@@ -187,8 +187,8 @@ export default function ProfileScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <Header
         title={t("profile")}
-        rightIconName="settings"
-        onRightIconPress={handleSettingsPress}
+        rightIcon="settings-outline"
+        onRightPress={handleSettingsPress}
       />
       <ScrollView
         style={styles.container}

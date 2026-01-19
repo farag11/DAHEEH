@@ -354,6 +354,10 @@ export default function SummarizeScreen() {
     }
   };
 
+  const handleTestMeWithContent = (content: string) => {
+    navigation.navigate("Quiz", { sourceText: content });
+  };
+
   const isProcessing = isLoading || isImageLoading;
 
   const showConversation = !showInput && messages.length > 0;
@@ -376,6 +380,7 @@ export default function SummarizeScreen() {
                 paddingBottom: FOLLOW_UP_INPUT_HEIGHT + Spacing.lg,
                 paddingHorizontal: Spacing.lg,
               }}
+              onTestMe={handleTestMeWithContent}
             >
               {!isLoading && lastSummary ? (
                 <View style={styles.actionsContainer}>

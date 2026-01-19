@@ -25,28 +25,27 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const METALLIC_GRAY = "#636366";
-const DOCK_BOTTOM = 25;
+const DOCK_BOTTOM = 0;
 const DOCK_HEIGHT = 70;
 
 const defaultTabBarStyle = {
   position: "absolute" as const,
   bottom: DOCK_BOTTOM,
-  width: "95%" as const,
-  alignSelf: "center" as const,
-  left: "2.5%" as const,
+  left: 0,
+  right: 0,
+  width: "100%" as const,
   height: DOCK_HEIGHT,
   backgroundColor: "rgba(15, 15, 20, 0.96)",
-  borderRadius: 35,
-  borderWidth: 1,
-  borderColor: "rgba(255, 255, 255, 0.1)",
+  borderRadius: 0,
+  borderWidth: 0,
   borderTopWidth: 1,
   borderTopColor: "rgba(255, 255, 255, 0.1)",
   shadowColor: "#000",
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.5,
-  shadowRadius: 20,
+  shadowOffset: { width: 0, height: -4 },
+  shadowOpacity: 0.3,
+  shadowRadius: 12,
   elevation: 12,
-  paddingBottom: 0,
+  paddingBottom: 10,
   paddingTop: 0,
   justifyContent: "center" as const,
 };
@@ -87,7 +86,7 @@ function GlowIcon({ name, focused, size, activeColor, glowColor }: GlowIconProps
 
 export function useFloatingDockHeight(): number {
   const insets = useSafeAreaInsets();
-  return DOCK_HEIGHT + DOCK_BOTTOM + Math.max(insets.bottom, 12);
+  return DOCK_HEIGHT + DOCK_BOTTOM + Math.max(insets.bottom, 20);
 }
 
 export default function MainTabNavigator() {
@@ -212,7 +211,7 @@ export default function MainTabNavigator() {
 
 const styles = StyleSheet.create({
   blurBackground: {
-    borderRadius: 35,
+    borderRadius: 0,
     overflow: "hidden",
   },
   iconContainer: {

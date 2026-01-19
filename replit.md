@@ -18,7 +18,7 @@ Preferred communication style: Simple, everyday language.
 - **Animations**: React Native Reanimated
 - **Local Storage**: AsyncStorage
 - **UI/UX Decisions**:
-    - **Navigation**: Wide elegant capsule dock (70px height, 95% width centered, bottom: 25) with deepest dark glass rgba(15,15,20,0.96), dynamic theme-colored glow for active icons (matches user's selected accent color), metallic gray (#636366) for inactive. Icons perfectly vertically centered.
+    - **Navigation**: Docked bottom navigation bar (70px height, full width, bottom: 0) with dark glass rgba(15,15,20,0.96), dynamic theme-colored glow for active icons (matches user's selected accent color), metallic gray (#636366) for inactive. Icons perfectly vertically centered.
     - **Input/Chat**: Dark capsule UI for input bars and chat bubbles, featuring glassmorphism effects, frost borders, and gradient elements.
     - **Buttons**: Themed gradient buttons with enhanced glow effects.
     - **Typography**: Cairo_700Bold for all Arabic text, Poppins for English, with automatic language-based selection.

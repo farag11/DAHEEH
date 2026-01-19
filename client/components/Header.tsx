@@ -17,7 +17,11 @@ export const Header: React.FC<HeaderProps> = ({ title, rightIcon, onRightPress }
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <ThemedText style={styles.title}>{title}</ThemedText>
       {rightIcon && (
-        <TouchableOpacity onPress={onRightPress} style={styles.iconButton}>
+        <TouchableOpacity 
+          onPress={onRightPress} 
+          style={styles.iconButton}
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+        >
           <Ionicons name={rightIcon} size={24} color="white" />
         </TouchableOpacity>
       )}
@@ -41,6 +45,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   iconButton: {
-    padding: 5,
+    padding: 10,
+    zIndex: 999,
   },
 });
