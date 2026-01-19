@@ -31,6 +31,7 @@ import { AddToCollectionModal } from "@/components/AddToCollectionModal";
 import { ClipboardImageBadge } from "@/components/ClipboardImageBadge";
 import { GlassPrimaryButton } from "@/components/GlassButton";
 import type { HomeStackParamList } from "@/navigation/HomeStackNavigator";
+import { HistoryService } from "@/services/HistoryService";
 
 type Complexity = "simple" | "detailed" | "comprehensive";
 type SummarizeScreenRouteProp = RouteProp<HomeStackParamList, "Summarize">;
@@ -274,6 +275,14 @@ export default function SummarizeScreen() {
 
       setLastSummary(summary);
       setOriginalContent(combinedText);
+
+      if (!isGuest) {
+        await HistoryService.saveHistoryItem({
+          type: "summary",
+          title: (combinedText || "Summary").substring(0, 50),
+          content: summary,
+        });
+      }
 
       const summaryId = Date.now().toString();
       setLastSummaryId(summaryId);
