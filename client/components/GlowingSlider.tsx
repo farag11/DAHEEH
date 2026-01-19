@@ -4,7 +4,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 import * as haptics from "@/utils/haptics";
 import { ThemedText } from "./ThemedText";
@@ -93,22 +94,17 @@ export function GlowingSlider({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (evt) => {
-        thumbScale.value = withSpring(1.25, { damping: 10, stiffness: 400 });
-        // Store initial value for potential rollback
+        thumbScale.value = withTiming(1.15, { duration: 150, easing: Easing.out(Easing.ease) });
         lastValueRef.current = value;
       },
       onPanResponderMove: (evt) => {
-        // Calculate new value but don't update state yet - just update visual feedback
         const newValue = calculateValue(evt.nativeEvent.locationX);
         if (newValue !== lastValueRef.current) {
           lastValueRef.current = newValue;
-          // Update visual position without triggering re-renders
-          // The progress bar will update based on lastValueRef.current
         }
       },
       onPanResponderRelease: () => {
-        thumbScale.value = withSpring(1, { damping: 12, stiffness: 300 });
-        // Only update the actual state when sliding is complete
+        thumbScale.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) });
         const finalValue = lastValueRef.current;
         if (finalValue !== value) {
           haptics.selection();
@@ -116,8 +112,7 @@ export function GlowingSlider({
         }
       },
       onPanResponderTerminate: () => {
-        thumbScale.value = withSpring(1, { damping: 12, stiffness: 300 });
-        // Reset to original value if gesture was cancelled
+        thumbScale.value = withTiming(1, { duration: 150, easing: Easing.out(Easing.ease) });
         lastValueRef.current = value;
       },
     })

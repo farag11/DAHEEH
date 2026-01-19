@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { View, StyleSheet, Pressable, TextInput, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -515,7 +515,7 @@ export default function SummarizeScreen() {
           }}
           scrollIndicatorInsets={{ bottom: insets.bottom }}
         >
-          <Animated.View entering={FadeInDown.delay(100).springify().damping(12).mass(0.8)}>
+          <Animated.View entering={FadeIn.delay(100).duration(300)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
               <ThemedText style={[styles.label, isRTL && styles.rtlText]}>{t("complexity")}</ThemedText>
               <View style={[styles.chipsContainer, isRTL && styles.rtl]}>
@@ -545,7 +545,7 @@ export default function SummarizeScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(200).springify().damping(12).mass(0.8)}>
+          <Animated.View entering={FadeIn.delay(150).duration(300)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
               <View style={[styles.labelRow, isRTL && styles.rtl]}>
                 <ThemedText style={styles.label}>{t("enterText")}</ThemedText>
@@ -622,7 +622,7 @@ export default function SummarizeScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInDown.delay(300).springify().damping(12).mass(0.8)}>
+          <Animated.View entering={FadeIn.delay(200).duration(300)}>
               <GlassPrimaryButton
               title={isExtractingText ? t("extractingText") : t("generateSummary")}
               onPress={handleGenerate}

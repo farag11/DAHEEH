@@ -3,9 +3,15 @@ import { Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 import * as haptics from "@/utils/haptics";
+
+const TIMING_CONFIG = {
+  duration: 150,
+  easing: Easing.out(Easing.ease),
+};
 
 const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable);
 
@@ -35,11 +41,7 @@ export function AnimatedPressable({
   }));
 
   const handlePressIn = (e: any) => {
-    scale.value = withSpring(scaleDown, {
-      damping: 15,
-      stiffness: 400,
-      mass: 0.5,
-    });
+    scale.value = withTiming(scaleDown, TIMING_CONFIG);
     if (hapticFeedback) {
       if (hapticType === "light") haptics.lightTap();
       else if (hapticType === "medium") haptics.mediumTap();
@@ -49,11 +51,7 @@ export function AnimatedPressable({
   };
 
   const handlePressOut = (e: any) => {
-    scale.value = withSpring(1, {
-      damping: 15,
-      stiffness: 300,
-      mass: 0.6,
-    });
+    scale.value = withTiming(1, TIMING_CONFIG);
     onPressOut?.(e);
   };
 

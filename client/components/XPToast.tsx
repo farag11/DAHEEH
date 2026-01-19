@@ -80,22 +80,7 @@ type XPToastContainerProps = {
 };
 
 export function XPToastContainer({ toasts, onDismiss }: XPToastContainerProps) {
-  if (toasts.length === 0) return null;
-
-  return (
-    <View style={styles.toastContainer} pointerEvents="box-none">
-      {toasts.slice(-3).map((toast, index) => (
-        <Animated.View
-          key={toast.id}
-          entering={FadeInUp.delay(index * 50).springify().damping(12)}
-          exiting={FadeOutUp}
-          style={{ marginBottom: 8 }}
-        >
-          <XPToast toast={toast} onDismiss={onDismiss} />
-        </Animated.View>
-      ))}
-    </View>
-  );
+  return null;
 }
 
 const styles = StyleSheet.create({

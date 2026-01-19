@@ -3,8 +3,8 @@ import { StyleSheet, Pressable, ViewStyle } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  WithSpringConfig,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -20,12 +20,9 @@ interface CardProps {
   style?: ViewStyle;
 }
 
-const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
-  overshootClamping: true,
-  energyThreshold: 0.001,
+const TIMING_CONFIG = {
+  duration: 150,
+  easing: Easing.out(Easing.ease),
 };
 
 const getBackgroundColorForElevation = (
@@ -64,11 +61,11 @@ export function Card({
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, springConfig);
+    scale.value = withTiming(0.98, TIMING_CONFIG);
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, springConfig);
+    scale.value = withTiming(1, TIMING_CONFIG);
   };
 
   return (

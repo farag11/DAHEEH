@@ -5,9 +5,8 @@ import { Feather } from "@expo/vector-icons";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
-  runOnJS,
+  Easing,
 } from "react-native-reanimated";
 
 import { useTheme } from "@/hooks/useTheme";
@@ -28,10 +27,9 @@ interface ConfirmModalProps {
   destructive?: boolean;
 }
 
-const springConfig = {
-  damping: 20,
-  mass: 0.5,
-  stiffness: 200,
+const TIMING_CONFIG = {
+  duration: 200,
+  easing: Easing.out(Easing.ease),
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -61,9 +59,9 @@ export function ConfirmModal({
 
   useEffect(() => {
     if (visible) {
-      backdropOpacity.value = withTiming(1, { duration: 200 });
-      translateY.value = withSpring(0, springConfig);
-      opacity.value = withTiming(1, { duration: 200 });
+      backdropOpacity.value = withTiming(1, TIMING_CONFIG);
+      translateY.value = withTiming(0, TIMING_CONFIG);
+      opacity.value = withTiming(1, TIMING_CONFIG);
       haptics.mediumTap();
     } else {
       backdropOpacity.value = withTiming(0, { duration: 150 });
@@ -90,19 +88,19 @@ export function ConfirmModal({
   }));
 
   const handleCancelPressIn = () => {
-    cancelScale.value = withSpring(0.96, springConfig);
+    cancelScale.value = withTiming(0.96, TIMING_CONFIG);
   };
 
   const handleCancelPressOut = () => {
-    cancelScale.value = withSpring(1, springConfig);
+    cancelScale.value = withTiming(1, TIMING_CONFIG);
   };
 
   const handleConfirmPressIn = () => {
-    confirmScale.value = withSpring(0.96, springConfig);
+    confirmScale.value = withTiming(0.96, TIMING_CONFIG);
   };
 
   const handleConfirmPressOut = () => {
-    confirmScale.value = withSpring(1, springConfig);
+    confirmScale.value = withTiming(1, TIMING_CONFIG);
   };
 
   const handleCancel = () => {

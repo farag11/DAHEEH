@@ -10,7 +10,7 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
+  Easing,
   runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -86,9 +86,9 @@ function ToastItem({ message, type, onDismiss }: ToastItemProps) {
   const bottomOffset = baseInset + TAB_BAR_HEIGHT + EXTRA_PADDING;
 
   useEffect(() => {
-    translateY.value = withSpring(0, {
-      damping: 15,
-      stiffness: 150,
+    translateY.value = withTiming(0, { 
+      duration: ANIMATION_DURATION,
+      easing: Easing.out(Easing.ease),
     });
     opacity.value = withTiming(1, { duration: ANIMATION_DURATION });
 

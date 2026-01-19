@@ -14,7 +14,7 @@ import { useHeaderHeight } from "@/components/Header";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInDown, FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import * as haptics from "@/utils/haptics";
 import * as Clipboard from "expo-clipboard";
 

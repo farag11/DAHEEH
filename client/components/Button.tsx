@@ -3,8 +3,8 @@ import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
-  WithSpringConfig,
+  withTiming,
+  Easing,
 } from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -18,12 +18,9 @@ interface ButtonProps {
   disabled?: boolean;
 }
 
-const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
-  overshootClamping: true,
-  energyThreshold: 0.001,
+const TIMING_CONFIG = {
+  duration: 150,
+  easing: Easing.out(Easing.ease),
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -43,13 +40,13 @@ export function Button({
 
   const handlePressIn = () => {
     if (!disabled) {
-      scale.value = withSpring(0.98, springConfig);
+      scale.value = withTiming(0.98, TIMING_CONFIG);
     }
   };
 
   const handlePressOut = () => {
     if (!disabled) {
-      scale.value = withSpring(1, springConfig);
+      scale.value = withTiming(1, TIMING_CONFIG);
     }
   };
 

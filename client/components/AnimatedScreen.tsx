@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleProp, ViewStyle } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 
 interface AnimatedScreenProps {
   children: React.ReactNode;
@@ -15,7 +15,7 @@ export function AnimatedScreen({
 }: AnimatedScreenProps) {
   return (
     <Animated.View 
-      entering={FadeInDown.delay(delay).springify().damping(12).mass(0.8)}
+      entering={FadeIn.delay(delay).duration(300)}
       style={[{ flex: 1 }, style]}
     >
       {children}

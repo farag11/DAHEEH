@@ -3,12 +3,10 @@ import { View, StyleSheet, Pressable } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withSpring,
   withTiming,
   withDelay,
-  interpolate,
-  Extrapolation,
-  FadeInDown,
+  Easing,
+  FadeIn,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -35,13 +33,16 @@ export function LevelCard({ compact = false, onPress }: LevelCardProps) {
   const fireScale = useSharedValue(1);
 
   useEffect(() => {
-    progressWidth.value = withDelay(300, withSpring(xpProgress, { damping: 15, stiffness: 80 }));
+    progressWidth.value = withDelay(300, withTiming(xpProgress, { 
+      duration: 400,
+      easing: Easing.out(Easing.ease),
+    }));
   }, [xpProgress]);
 
   useEffect(() => {
     if (streak > 0) {
-      fireScale.value = withSpring(1.2, { damping: 8 }, () => {
-        fireScale.value = withSpring(1, { damping: 12 });
+      fireScale.value = withTiming(1.1, { duration: 200 }, () => {
+        fireScale.value = withTiming(1, { duration: 150 });
       });
     }
   }, [streak]);
@@ -66,7 +67,7 @@ export function LevelCard({ compact = false, onPress }: LevelCardProps) {
   if (compact) {
     return (
       <Pressable onPress={handlePress}>
-        <Animated.View entering={FadeInDown.delay(100).springify().damping(12).mass(0.8)}>
+        <Animated.View entering={FadeIn.delay(100).duration(300)}>
           <BlurView intensity={40} tint="dark" style={styles.compactContainer}>
             <View style={[styles.compactContent, isRTL && styles.rtl]}>
               <View style={[styles.levelBadge, { backgroundColor: rankInfo.color + "30" }]}>
@@ -101,7 +102,7 @@ export function LevelCard({ compact = false, onPress }: LevelCardProps) {
 
   return (
     <Pressable onPress={handlePress}>
-      <Animated.View entering={FadeInDown.delay(100).springify().damping(12).mass(0.8)}>
+      <Animated.View entering={FadeIn.delay(100).duration(300)}>
         <LinearGradient
           colors={[theme.gradientStart, theme.gradientEnd]}
           start={{ x: 0, y: 0 }}

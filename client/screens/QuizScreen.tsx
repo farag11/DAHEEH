@@ -12,7 +12,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
-import ReanimatedAnimated, { FadeInDown } from "react-native-reanimated";
+import ReanimatedAnimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useHeaderHeight } from "@/components/Header";
@@ -819,7 +819,7 @@ export default function QuizScreen() {
     >
       {quizPhase === "input" ? (
         <>
-          <ReanimatedAnimated.View entering={FadeInDown.delay(100).springify().damping(12).mass(0.8)}>
+          <ReanimatedAnimated.View entering={FadeIn.delay(100).duration(300)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
               <ThemedText style={[styles.label, isRTL && styles.rtlText]}>{t("questionType")}</ThemedText>
               <View style={[styles.chipsContainer, isRTL && styles.rtl]}>
@@ -850,7 +850,7 @@ export default function QuizScreen() {
             </View>
           </ReanimatedAnimated.View>
 
-          <ReanimatedAnimated.View entering={FadeInDown.delay(200).springify().damping(12).mass(0.8)}>
+          <ReanimatedAnimated.View entering={FadeIn.delay(150).duration(300)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
               <View style={[styles.sliderHeader, isRTL && styles.rtl]}>
                 <ThemedText style={styles.label}>{t("numberOfQuestions")}</ThemedText>
@@ -878,7 +878,7 @@ export default function QuizScreen() {
             </View>
           </ReanimatedAnimated.View>
 
-          <ReanimatedAnimated.View entering={FadeInDown.delay(300).springify().damping(12).mass(0.8)}>
+          <ReanimatedAnimated.View entering={FadeIn.delay(200).duration(300)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
               <View style={[styles.sourceHeader, isRTL && styles.rtl]}>
                 <ThemedText style={[styles.label, isRTL && styles.rtlText]}>
@@ -1000,7 +1000,7 @@ export default function QuizScreen() {
             </View>
           </ReanimatedAnimated.View>
 
-          <ReanimatedAnimated.View entering={FadeInDown.delay(350).springify().damping(12).mass(0.8)}>
+          <ReanimatedAnimated.View entering={FadeIn.delay(250).duration(300)}>
             <View style={[styles.card, { backgroundColor: theme.cardBackground }]}>
               <ThemedText style={[styles.label, isRTL && styles.rtlText]}>
                 {isRTL ? "تعليمات إضافية (اختياري)" : "Additional Instructions (Optional)"}
@@ -1032,7 +1032,7 @@ export default function QuizScreen() {
             </View>
           ) : null}
 
-          <ReanimatedAnimated.View entering={FadeInDown.delay(400).springify().damping(12).mass(0.8)}>
+          <ReanimatedAnimated.View entering={FadeIn.delay(300).duration(300)}>
             <GlassPrimaryButton
               title={t("generateQuestions")}
               onPress={() => handleGenerate(false)}
