@@ -276,6 +276,11 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
+  // Health check endpoint for UptimeRobot monitoring
+  app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).send('Daheeh Server is Awake and Running!');
+  });
+
   // Register API routes FIRST (before static files and catch-all)
   const server = await registerRoutes(app);
 
