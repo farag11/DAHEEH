@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, TextInput, Modal, FlatList, Platform } fro
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight } from "@/components/Header";
 import { Feather } from "@expo/vector-icons";
 import * as haptics from "@/utils/haptics";
 

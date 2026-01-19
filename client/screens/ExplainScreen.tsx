@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, TextInput, ActivityIndicator, ScrollView, 
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight } from "@/components/Header";
 import { useFloatingDockHeight } from "@/navigation/MainTabNavigator";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";

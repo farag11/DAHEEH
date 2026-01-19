@@ -28,7 +28,7 @@ const METALLIC_GRAY = "#636366";
 const DOCK_BOTTOM = 0;
 const DOCK_HEIGHT = 70;
 
-const defaultTabBarStyle = {
+const getDefaultTabBarStyle = (bottomInset: number) => ({
   position: "absolute" as const,
   bottom: DOCK_BOTTOM,
   left: 0,
@@ -45,10 +45,11 @@ const defaultTabBarStyle = {
   shadowOpacity: 0.3,
   shadowRadius: 12,
   elevation: 12,
-  paddingBottom: 10,
+  paddingBottom: Platform.OS === 'android' ? 10 : Math.max(bottomInset, 20),
   paddingTop: 0,
   justifyContent: "center" as const,
-};
+  zIndex: 100,
+});
 
 const hiddenTabBarStyle = { display: "none" as const };
 
@@ -92,10 +93,12 @@ export function useFloatingDockHeight(): number {
 export default function MainTabNavigator() {
   const { t } = useLanguage();
   const { getAccentColor, getAccentGradient } = useAccentTheme();
+  const insets = useSafeAreaInsets();
   
   const accentColor = getAccentColor();
   const accentGradient = getAccentGradient();
   const glowColor = `${accentColor}99`;
+  const defaultTabBarStyle = getDefaultTabBarStyle(insets.bottom);
   
   return (
     <Tab.Navigator
