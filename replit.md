@@ -99,18 +99,31 @@ Preferred communication style: Simple, everyday language.
   - XPToast: Overlay appears on XP awards with haptic feedback
 - **Haptic Feedback**: `success()` on level up, `lightTap()` on XP awards
 
-### AI Integration
-- **Multi-provider Architecture**: Automatic fallback between Replit OpenAI, Google Gemini, and DeepSeek.
-- **Endpoints**: Dedicated API endpoints for summarization, questions, explanation, study planning.
-- **Vision Mode**: All AI endpoints (summarize, questions, explain) accept base64 images for direct multimodal analysis.
-- **Image UX**: ImagePreviewList shows scanning state with blur overlay, loading indicator, and "Analyzing..." label during vision processing.
+### AI Integration (Hybrid Architecture)
+- **Text Operations (Ultra-Fast)**: Groq with `llama3-70b-8192` model - primary for all text-based operations
+- **Image Analysis (Vision)**: Google Gemini 2.0 Flash - used ONLY when images are provided
+- **Fallback Chain**: Groq -> DeepSeek -> OpenAI for text operations
+- **Endpoints**: Dedicated API endpoints for summarization, questions, explanation, study planning, follow-up chat
+- **Vision Mode**: All AI endpoints (summarize, questions, explain) accept base64 images for direct multimodal analysis via Gemini
+- **Image UX**: ImagePreviewList shows scanning state with blur overlay, loading indicator, and "Analyzing..." label during vision processing
+- **Health Check**: `/health` endpoint for UptimeRobot monitoring
+
+### AI Provider Decision Logic
+| Operation | With Images | Text Only |
+|-----------|-------------|-----------|
+| Summarize | Gemini 2.0 Flash | Groq llama3-70b |
+| Quiz | Gemini 2.0 Flash | Groq llama3-70b |
+| Explain | Gemini 2.0 Flash | Groq llama3-70b |
+| Study Plan | N/A | Groq llama3-70b |
+| Follow-up Chat | N/A | Groq llama3-70b |
 
 ## External Dependencies
 
 ### AI Services
-- **Replit OpenAI**: Primary built-in AI provider.
-- **Google Gemini API**: User-provided API key for fallback.
-- **DeepSeek API**: User-provided API key for tertiary fallback.
+- **Groq**: Primary AI provider for text operations (ultra-fast inference with llama3-70b-8192)
+- **Google Gemini API**: Used exclusively for image/vision analysis
+- **DeepSeek API**: Secondary fallback for text operations
+- **Replit OpenAI**: Tertiary fallback
 
 ### Database
 - **PostgreSQL**: Used with Drizzle ORM for data persistence.

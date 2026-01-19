@@ -1,11 +1,15 @@
 import type { Express, Request, Response } from "express";
-import { generateSummary, generateImageDescription, chatCompletion, openaiClient, deepseekClient } from "./services/aiService";
+import { generateSummary, chatCompletion, openaiClient, deepseekClient, groqClient } from "./services/aiService";
 import OpenAI from "openai";
+import Groq from "groq-sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize Gemini client for fast question generation
+// Initialize Gemini client for image-based operations ONLY
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const genAI = geminiApiKey ? new GoogleGenerativeAI(geminiApiKey) : null;
+
+// Groq model for ultra-fast text operations
+const GROQ_MODEL = "llama3-70b-8192";
 
 interface ProviderConfig {
   client: OpenAI | null;
@@ -96,12 +100,12 @@ export function registerAIRoutes(app: Express): void {
         });
         provider = "gemini-vision";
       } else {
-        // Text-only: use DeepSeek for summary
+        // Text-only: use Groq (ultra-fast) with DeepSeek fallback
         summary = await generateSummary(text, {
           complexity: level as "simple" | "detailed" | "comprehensive",
           count: userRequestedCount || undefined,
         });
-        provider = "deepseek";
+        provider = groqClient ? "groq-llama3" : "deepseek";
       }
 
       res.json({ summary, provider, visionUsed: hasImages });
@@ -266,12 +270,32 @@ ${text}`;
         return normalized;
       };
 
-      // Gemini batch generation function (primary - fast)
+      // Groq batch generation function (PRIMARY - ultra-fast for text)
+      const generateBatchGroq = async (batchSize: number, batchIndex: number): Promise<any[]> => {
+        if (!groqClient) throw new Error("Groq API key not configured");
+        
+        const batchPrompt = buildPrompt(batchSize, 0);
+        
+        const completion = await groqClient.chat.completions.create({
+          model: GROQ_MODEL,
+          messages: [{ role: "user", content: batchPrompt }],
+          max_tokens: 4096,
+          temperature: 0.7,
+        });
+
+        const responseText = completion.choices[0]?.message?.content || "";
+        const rawQuestions = parseQuestions(responseText);
+        const normalizedQuestions = rawQuestions.map(normalizeQuestion);
+        console.log(`[Quiz API] Groq Batch ${batchIndex + 1} generated: ${normalizedQuestions.length} questions`);
+        return normalizedQuestions;
+      };
+
+      // Gemini batch generation function (for images only)
       const generateBatchGemini = async (batchSize: number, batchIndex: number, includeImages: boolean): Promise<any[]> => {
         if (!genAI) throw new Error("Gemini API key not configured");
         
         const model = genAI.getGenerativeModel({ 
-          model: "gemini-2.5-flash",
+          model: "gemini-2.0-flash",
           generationConfig: { 
             responseMimeType: "application/json",
             maxOutputTokens: 4096,
@@ -349,23 +373,57 @@ ${text}`;
         const fetchTarget = Math.ceil(questionCount * 1.5);
         const numBatches = Math.ceil(fetchTarget / BATCH_SIZE);
         
-        // Try Gemini first (fastest)
-        if (genAI) {
+        // If images provided, use Gemini for vision
+        if (hasImages) {
+          if (genAI) {
+            try {
+              console.log(`[Quiz API] Using Gemini 2.0 Flash (images): requesting ${fetchTarget} in ${numBatches} batches`);
+              
+              const batchPromises: Promise<any[]>[] = [];
+              for (let i = 0; i < numBatches; i++) {
+                const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
+                const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
+                const includeImages = i === 0; // Only include images in first batch
+                batchPromises.push(generateBatchGemini(batchSize, i, includeImages));
+              }
+              
+              const batchResults = await Promise.all(batchPromises);
+              const allQuestions = batchResults.flat();
+              
+              const seen = new Set<string>();
+              const uniqueQuestions = allQuestions.filter(q => {
+                const key = q.question?.toLowerCase().trim();
+                if (!key || seen.has(key)) return false;
+                seen.add(key);
+                return true;
+              });
+              
+              const finalQuestions = uniqueQuestions.slice(0, questionCount);
+              console.log(`[Quiz API] Gemini Result: ${allQuestions.length} fetched -> ${finalQuestions.length} returned`);
+              return { questions: finalQuestions, provider: "gemini-vision" };
+            } catch (error) {
+              console.warn("[Quiz API] Gemini failed:", error);
+              throw error;
+            }
+          }
+          throw new Error("Gemini API key required for image-based questions");
+        }
+        
+        // Text-only: Try Groq first (ultra-fast)
+        if (groqClient) {
           try {
-            console.log(`[Quiz API] Using Gemini 2.5 Flash: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
+            console.log(`[Quiz API] Using Groq (ultra-fast): requesting ${fetchTarget} in ${numBatches} batches`);
             
             const batchPromises: Promise<any[]>[] = [];
             for (let i = 0; i < numBatches; i++) {
               const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
               const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
-              const includeImages = hasImages && i === 0;
-              batchPromises.push(generateBatchGemini(batchSize, i, includeImages));
+              batchPromises.push(generateBatchGroq(batchSize, i));
             }
             
             const batchResults = await Promise.all(batchPromises);
             const allQuestions = batchResults.flat();
             
-            // Deduplicate questions by question text
             const seen = new Set<string>();
             const uniqueQuestions = allQuestions.filter(q => {
               const key = q.question?.toLowerCase().trim();
@@ -374,31 +432,28 @@ ${text}`;
               return true;
             });
             
-            // Slice to exact requested count
             const finalQuestions = uniqueQuestions.slice(0, questionCount);
-            console.log(`[Quiz API] Gemini Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
-            return { questions: finalQuestions, provider: "gemini-2.5-flash" };
+            console.log(`[Quiz API] Groq Result: ${allQuestions.length} fetched -> ${finalQuestions.length} returned`);
+            return { questions: finalQuestions, provider: "groq-llama3" };
           } catch (error) {
-            console.warn("[Quiz API] Gemini failed, falling back to DeepSeek/OpenAI:", error);
+            console.warn("[Quiz API] Groq failed, falling back:", error);
           }
         }
         
         // Fallback to DeepSeek/OpenAI
         const { result, provider } = await callWithFallback(async (client, model) => {
-          console.log(`[Quiz API] Fallback to ${model}: requesting ${fetchTarget} (1.5x of ${questionCount}) in ${numBatches} batches of ${BATCH_SIZE}`);
+          console.log(`[Quiz API] Fallback to ${model}: requesting ${fetchTarget} in ${numBatches} batches`);
           
           const batchPromises: Promise<any[]>[] = [];
           for (let i = 0; i < numBatches; i++) {
             const remainingQuestions = fetchTarget - (i * BATCH_SIZE);
             const batchSize = Math.min(BATCH_SIZE, remainingQuestions);
-            const includeImages = hasImages && i === 0;
-            batchPromises.push(generateBatchOpenAI(client, model, batchSize, i, includeImages));
+            batchPromises.push(generateBatchOpenAI(client, model, batchSize, i, false));
           }
           
           const batchResults = await Promise.all(batchPromises);
           const allQuestions = batchResults.flat();
           
-          // Deduplicate questions by question text
           const seen = new Set<string>();
           const uniqueQuestions = allQuestions.filter(q => {
             const key = q.question?.toLowerCase().trim();
@@ -407,9 +462,8 @@ ${text}`;
             return true;
           });
           
-          // Slice to exact requested count
           const finalQuestions = uniqueQuestions.slice(0, questionCount);
-          console.log(`[Quiz API] Fallback Result: ${allQuestions.length} fetched → ${uniqueQuestions.length} unique → ${finalQuestions.length} returned (target: ${questionCount})`);
+          console.log(`[Quiz API] Fallback Result: ${allQuestions.length} fetched -> ${finalQuestions.length} returned`);
           return finalQuestions;
         });
         
@@ -463,43 +517,65 @@ Include:
 
 Use clear formatting with headers and bullet points. Return plain text only, no markdown code blocks.`;
 
-      // Use deepseek-reasoner for high-quality explanations
+      // If images provided, use Gemini for vision
+      if (hasImages) {
+        if (!genAI) {
+          return res.status(500).json({ error: "Gemini API key required for image-based explanation" });
+        }
+        
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        
+        const imageParts = images.map((img: string) => ({
+          inlineData: {
+            data: img.startsWith("data:") ? img.split(",")[1] : img,
+            mimeType: img.startsWith("data:") ? img.split(":")[1].split(";")[0] : "image/png",
+          }
+        }));
+        
+        const result = await model.generateContent([prompt, ...imageParts]);
+        const explanation = cleanTextResponse(result.response.text());
+        
+        res.json({ explanation, provider: "gemini-vision", visionUsed: true });
+        return;
+      }
+
+      // Text-only: Try Groq first (ultra-fast)
+      if (groqClient) {
+        try {
+          const completion = await groqClient.chat.completions.create({
+            model: GROQ_MODEL,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 4096,
+            temperature: 0.7,
+          });
+          
+          const explanation = cleanTextResponse(completion.choices[0]?.message?.content || "");
+          console.log("[Explain API] Generated with Groq");
+          res.json({ explanation, provider: "groq-llama3", visionUsed: false });
+          return;
+        } catch (error) {
+          console.warn("[Explain API] Groq failed, falling back:", error);
+        }
+      }
+
+      // Fallback to DeepSeek/OpenAI
       const { result, provider } = await callWithFallback(
         async (client, model) => {
-          let messageContent: OpenAI.Chat.Completions.ChatCompletionContentPart[] | string;
-          
-          if (hasImages) {
-            const parts: OpenAI.Chat.Completions.ChatCompletionContentPart[] = [
-              { type: "text", text: prompt }
-            ];
-            for (const img of images) {
-              parts.push({
-                type: "image_url",
-                image_url: {
-                  url: img.startsWith("data:") ? img : `data:image/png;base64,${img}`,
-                },
-              });
-            }
-            messageContent = parts;
-          } else {
-            messageContent = prompt;
-          }
-
           const completion = await client.chat.completions.create(
             {
               model: model,
-              messages: [{ role: "user", content: messageContent }],
+              messages: [{ role: "user", content: prompt }],
               max_tokens: 4096,
             },
             { timeout: 120000 }
           );
           return cleanTextResponse(completion.choices[0]?.message?.content || "");
         },
-        { client: deepseekClient, model: "deepseek-reasoner" },
+        { client: deepseekClient, model: "deepseek-chat" },
         { client: openaiClient, model: "gpt-4o" }
       );
 
-      res.json({ explanation: result, provider, visionUsed: hasImages });
+      res.json({ explanation: result, provider, visionUsed: false });
     } catch (error: any) {
       console.error("Explain concept error:", error);
       res.status(500).json({ error: error.message || "Failed to generate explanation" });
@@ -541,6 +617,26 @@ Format it clearly with:
 
 Make it practical and achievable. Return plain text only, no markdown code blocks.`;
 
+      // Try Groq first (ultra-fast)
+      if (groqClient) {
+        try {
+          const completion = await groqClient.chat.completions.create({
+            model: GROQ_MODEL,
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 4096,
+            temperature: 0.7,
+          });
+          
+          const plan = cleanTextResponse(completion.choices[0]?.message?.content || "");
+          console.log("[Study Plan API] Generated with Groq");
+          res.json({ plan, provider: "groq-llama3" });
+          return;
+        } catch (error) {
+          console.warn("[Study Plan API] Groq failed, falling back:", error);
+        }
+      }
+
+      // Fallback to DeepSeek/OpenAI
       const { result, provider } = await callWithFallback(async (client, model) => {
         const completion = await client.chat.completions.create({
           model: model,
@@ -579,9 +675,10 @@ Make it practical and achievable. Return plain text only, no markdown code block
         }
       }
 
+      // chatCompletion now uses Groq first with DeepSeek fallback
       const response = await chatCompletion(formattedMessages, { maxTokens: 2048 });
 
-      res.json({ response, provider: "deepseek" });
+      res.json({ response, provider: groqClient ? "groq-llama3" : "deepseek" });
     } catch (error: any) {
       console.error("Follow-up error:", error);
       res.status(500).json({ error: error.message || "Failed to generate response" });

@@ -52,6 +52,7 @@
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
     "express": "^4.22.1",
+    "groq-sdk": "^0.37.0",
     "http-proxy-middleware": "^3.0.5",
     "multer": "^2.0.2",
     "openai": "^6.16.0",

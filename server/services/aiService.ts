@@ -1,11 +1,18 @@
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
 const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
-const openaiApiKey = process.env.OPENAI_API_KEY; // For fallback in ai-routes
+const openaiApiKey = process.env.OPENAI_API_KEY;
 const geminiApiKey = process.env.GEMINI_API_KEY;
+const groqApiKey = process.env.GROQ_API_KEY;
 
-// DeepSeek client for text generation
+// Groq client for ultra-fast text generation (PRIMARY for text)
+export const groqClient = groqApiKey
+  ? new Groq({ apiKey: groqApiKey })
+  : null;
+
+// DeepSeek client (fallback for text generation)
 export const deepseekClient = deepseekApiKey
   ? new OpenAI({
       baseURL: "https://api.deepseek.com",
@@ -14,23 +21,26 @@ export const deepseekClient = deepseekApiKey
     })
   : null;
 
-// OpenAI client (for fallback if needed directly here, or used via ai-routes)
+// OpenAI client (secondary fallback)
 export const openaiClient = openaiApiKey
   ? new OpenAI({
       apiKey: openaiApiKey,
     })
   : null;
 
-// Gemini client for image analysis
+// Gemini client for image analysis ONLY
 const genAI = geminiApiKey
   ? new GoogleGenerativeAI(geminiApiKey)
   : null;
 
+// Groq model for text operations
+const GROQ_MODEL = "llama3-70b-8192";
+
 /**
- * Generates a summary using DeepSeek
+ * Generates a summary using Groq (ultra-fast) with DeepSeek fallback
  * @param text - The text to summarize
  * @param options - Additional options for summarization
- * @returns Promise<string | null> - The generated summary or null if API key is not configured
+ * @returns Promise<string | null> - The generated summary or null if no API key configured
  */
 export async function generateSummary(
   text: string,
@@ -39,14 +49,9 @@ export async function generateSummary(
     count?: number;
   } = {}
 ): Promise<string | null> {
-  if (!deepseekClient) {
-    console.warn("DeepSeek API key is not configured. Skipping summary generation.");
-    return null;
-  }
-  try {
-    const { complexity = 'detailed', count } = options;
+  const { complexity = 'detailed', count } = options;
 
-    const systemPrompt = `CRITICAL LANGUAGE RULE: Detect the language of the input. If the input is in Arabic, respond ENTIRELY in Arabic. If in English, respond in English. NEVER translate.
+  const systemPrompt = `CRITICAL LANGUAGE RULE: Detect the language of the input. If the input is in Arabic, respond ENTIRELY in Arabic. If in English, respond in English. NEVER translate.
 
 You are a concise summarizer. Your goal is to extract KEY POINTS ONLY.
 
@@ -57,31 +62,57 @@ Rules:
 - Be direct and to the point
 - Match the complexity level requested`;
 
-    let userPrompt = `Summarize this with ${complexity} detail`;
-    if (count) {
-      userPrompt += ` in exactly ${count} bullet points`;
-    }
-    userPrompt += `:\n\n${text}`;
-
-    const completion = await deepseekClient.chat.completions.create({
-      model: "deepseek-reasoner",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      max_tokens: 2048,
-    });
-
-    return completion.choices[0]?.message?.content || "";
-  } catch (error) {
-    console.error('DeepSeek summary generation error:', error);
-    throw new Error('Failed to generate summary with DeepSeek');
+  let userPrompt = `Summarize this with ${complexity} detail`;
+  if (count) {
+    userPrompt += ` in exactly ${count} bullet points`;
   }
+  userPrompt += `:\n\n${text}`;
+
+  // Try Groq first (ultra-fast)
+  if (groqClient) {
+    try {
+      const completion = await groqClient.chat.completions.create({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 2048,
+        temperature: 0.7,
+      });
+      console.log("[AI] Summary generated with Groq");
+      return completion.choices[0]?.message?.content || "";
+    } catch (error) {
+      console.warn("Groq summary generation failed, falling back to DeepSeek:", error);
+    }
+  }
+
+  // Fallback to DeepSeek
+  if (deepseekClient) {
+    try {
+      const completion = await deepseekClient.chat.completions.create({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 2048,
+      });
+      console.log("[AI] Summary generated with DeepSeek");
+      return completion.choices[0]?.message?.content || "";
+    } catch (error) {
+      console.error('DeepSeek summary generation error:', error);
+      throw new Error('Failed to generate summary');
+    }
+  }
+
+  console.warn("No AI API keys configured for summary generation.");
+  return null;
 }
 
 /**
  * Summarizes content with vision support using Gemini 2.0 Flash
- * Handles both text and images directly
+ * This is the ONLY function that uses Gemini - for image analysis
  */
 export async function summarizeWithVision(
   text: string,
@@ -145,6 +176,7 @@ Rules:
 
   const result = await model.generateContent(parts);
   const response = await result.response;
+  console.log("[AI] Vision summary generated with Gemini");
   return response.text();
 }
 
@@ -163,12 +195,10 @@ export async function generateImageDescription(
     return null;
   }
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-    // Prepare image data for Gemini
     let imagePart;
     if (imageData.startsWith('data:')) {
-      // Base64 data URL
       const base64Data = imageData.split(',')[1];
       imagePart = {
         inlineData: {
@@ -177,11 +207,10 @@ export async function generateImageDescription(
         },
       };
     } else {
-      // Assume it's a URL
       imagePart = {
         inlineData: {
           data: imageData,
-          mimeType: 'image/png', // Default fallback
+          mimeType: 'image/png',
         },
       };
     }
@@ -200,31 +229,49 @@ export async function generateImageDescription(
 }
 
 /**
- * General chat completion using DeepSeek
+ * General chat completion using Groq (ultra-fast) with DeepSeek fallback
  * @param messages - Array of chat messages
  * @param options - Additional options for chat completion
- * @returns Promise<string | null> - The AI response or null if API key is not configured
+ * @returns Promise<string | null> - The AI response or null if no API key configured
  */
 export async function chatCompletion(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   options: { maxTokens?: number } = {}
 ): Promise<string | null> {
-  if (!deepseekClient) {
-    console.warn("DeepSeek API key is not configured. Skipping chat completion.");
-    return null;
-  }
-  try {
-    const { maxTokens = 2048 } = options;
+  const { maxTokens = 2048 } = options;
 
-    const completion = await deepseekClient.chat.completions.create({
-      model: "deepseek-reasoner",
-      messages,
-      max_tokens: maxTokens,
-    });
-
-    return completion.choices[0]?.message?.content || "";
-  } catch (error) {
-    console.error('DeepSeek chat completion error:', error);
-    throw new Error('Failed to generate chat response with DeepSeek');
+  // Try Groq first (ultra-fast)
+  if (groqClient) {
+    try {
+      const completion = await groqClient.chat.completions.create({
+        model: GROQ_MODEL,
+        messages,
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      });
+      console.log("[AI] Chat completed with Groq");
+      return completion.choices[0]?.message?.content || "";
+    } catch (error) {
+      console.warn("Groq chat completion failed, falling back to DeepSeek:", error);
+    }
   }
+
+  // Fallback to DeepSeek
+  if (deepseekClient) {
+    try {
+      const completion = await deepseekClient.chat.completions.create({
+        model: "deepseek-chat",
+        messages,
+        max_tokens: maxTokens,
+      });
+      console.log("[AI] Chat completed with DeepSeek");
+      return completion.choices[0]?.message?.content || "";
+    } catch (error) {
+      console.error('DeepSeek chat completion error:', error);
+      throw new Error('Failed to generate chat response');
+    }
+  }
+
+  console.warn("No AI API keys configured for chat completion.");
+  return null;
 }
