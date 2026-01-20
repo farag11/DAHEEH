@@ -45,7 +45,7 @@ export function AddToCollectionModal({
   const [selectedColor, setSelectedColor] = useState(COLLECTION_COLORS[0]);
 
   const handleAddToCollection = (collection: Collection) => {
-    addItemToCollection(collection.id, itemId, itemType);
+    addItemToCollection(collection.id, itemId);
     haptics.success();
     onSuccess?.();
     onClose();

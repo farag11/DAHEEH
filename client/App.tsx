@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
 import { NavigationContainer, DarkTheme } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -6,9 +6,11 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import { useFonts } from "expo-font";
 import * as Font from "expo-font";
+import { useFonts } from "expo-font";
 import { Feather } from "@expo/vector-icons";
+import NetInfo from "@react-native-community/netinfo"; // مكتبة الشبكة الأساسية
+
 import {
   Cairo_400Regular,
   Cairo_500Medium,
@@ -21,34 +23,50 @@ import {
   Poppins_700Bold,
 } from "@expo-google-fonts/poppins";
 
+// React Query & Client
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
 
+// Navigation
 import RootStackNavigator from "@/navigation/RootStackNavigator";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// Contexts
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { StudyProvider } from "@/contexts/StudyContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ToastProvider } from "@/components/Toast";
-import { AuthProvider } from "@/contexts/AuthContext";
-import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
+import { AuthProvider } from "@/contexts/AuthContext"; // Firebase Auth Provider
+import { NetworkProvider } from "@/contexts/NetworkContext";
 import { GamificationProvider, useGamification } from "@/contexts/GamificationContext";
+
+// Components
 import { XPToastContainer } from "@/components/XPToast";
 
+// Theme Configuration
 const navigationTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: "#0D0D1A", // Match the app's dark background
+    background: "#0D0D1A",
   },
 };
 
+// Prevent Splash Screen from hiding automatically
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// --- Offline Banner Component (Self-Contained Fix) ---
 function OfflineBanner() {
-  const { isOffline } = useNetwork();
+  const [isConnected, setIsConnected] = useState<boolean | null>(true);
 
-  if (!isOffline) return null;
+  useEffect(() => {
+    // مراقبة حالة الإنترنت مباشرة هنا لتجنب أخطاء الـ Hooks الخارجية
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setIsConnected(state.isConnected);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (isConnected !== false) return null; // لا تظهر شيئاً إذا كان متصلاً
 
   return (
     <View style={bannerStyles.container}>
@@ -68,6 +86,8 @@ const bannerStyles = StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "center",
+    width: "100%",
+    zIndex: 9999, // لضمان ظهوره فوق كل شيء
   },
   iconContainer: {
     marginRight: 8,
@@ -79,139 +99,31 @@ const bannerStyles = StyleSheet.create({
   },
 });
 
-function OfflineFallbackScreen() {
-  return (
-    <View style={offlineStyles.container}>
-      <Feather name="wifi-off" size={64} color="#ff9800" />
-      <Text style={offlineStyles.title}>لا يوجد اتصال بالسيرفر</Text>
-      <Text style={offlineStyles.subtitle}>العمل في وضع عدم الاتصال</Text>
-      <Text style={offlineStyles.message}>No server connection - Working in offline mode</Text>
-      <Text style={offlineStyles.hint}>البيانات المحفوظة متاحة للاستخدام</Text>
-      <Text style={offlineStyles.hintEn}>Cached data is available for use</Text>
-    </View>
-  );
-}
-
-const offlineStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#1a1a2e",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginTop: 24,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 18,
-    color: "#ff9800",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  message: {
-    fontSize: 14,
-    color: "#a0a0a0",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  hint: {
-    fontSize: 14,
-    color: "#8E8E93",
-    textAlign: "center",
-  },
-  hintEn: {
-    fontSize: 12,
-    color: "#6E6E73",
-    textAlign: "center",
-    marginTop: 4,
-  },
-});
-
-function GlobalErrorFallback({ error, resetError }: { error: Error; resetError: () => void }) {
-  return (
-    <View style={errorStyles.container}>
-      <Feather name="alert-triangle" size={64} color="#ff9800" />
-      <Text style={errorStyles.title}>لا يوجد اتصال بالسيرفر</Text>
-      <Text style={errorStyles.subtitle}>العمل في وضع عدم الاتصال</Text>
-      <Text style={errorStyles.message}>No server connection - Working in offline mode</Text>
-      <View style={errorStyles.button}>
-        <Text style={errorStyles.buttonText} onPress={resetError}>
-          Retry / إعادة المحاولة
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-const errorStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#1a1a2e",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#ffffff",
-    marginTop: 24,
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  subtitle: {
-    fontSize: 18,
-    color: "#ff9800",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  message: {
-    fontSize: 14,
-    color: "#a0a0a0",
-    textAlign: "center",
-    marginBottom: 32,
-  },
-  button: {
-    backgroundColor: "#4361EE",
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    color: "#ffffff",
-    fontWeight: "600",
-    fontSize: 16,
-  },
-});
-
+// --- XP Toast Overlay ---
 function XPToastOverlay() {
-  const { xpToasts, dismissToast } = useGamification();
-  return <XPToastContainer toasts={xpToasts} onDismiss={dismissToast} />;
+  // استخدام آمن للـ Hook مع قيمة افتراضية في حالة الفشل
+  try {
+    const { xpToasts, dismissToast } = useGamification();
+    return <XPToastContainer toasts={xpToasts} onDismiss={dismissToast} />;
+  } catch (e) {
+    return null; // عدم إظهار الـ Toast في حالة وجود خطأ في الـ Context
+  }
 }
 
+// --- Main App Content ---
 function AppContent() {
-  const { isOffline } = useNetwork();
-
-  if (isOffline) {
-    return <OfflineFallbackScreen />;
-  }
-
   return (
     <>
       <OfflineBanner />
       <NavigationContainer theme={navigationTheme}>
         <RootStackNavigator />
       </NavigationContainer>
+      <XPToastOverlay />
     </>
   );
 }
 
+// --- Root App Component ---
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     Cairo_400Regular,
@@ -256,34 +168,37 @@ export default function App() {
     );
   }
 
+  // ترتيب الـ Providers (Providers Hierarchy)
+  // 1. QueryClient (Data Fetching)
+  // 2. UI Providers (SafeArea, Gesture, Keyboard)
+  // 3. Network (Connectivity)
+  // 4. Auth (Firebase - Needs Network)
+  // 5. Data/Logic Providers (Study, Gamification - Need Auth)
   return (
-    <ErrorBoundary FallbackComponent={GlobalErrorFallback}>
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <KeyboardProvider>
-              <NetworkProvider>
-                <LanguageProvider>
-                  <ThemeProvider>
-                    <AuthProvider>
-                      <ToastProvider>
-                        <StudyProvider>
-                          <GamificationProvider>
-                            <XPToastOverlay />
-                            <AppContent />
-                          </GamificationProvider>
-                        </StudyProvider>
-                      </ToastProvider>
-                    </AuthProvider>
-                  </ThemeProvider>
-                </LanguageProvider>
-              </NetworkProvider>
-              <StatusBar style="auto" />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </SafeAreaProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={styles.root}>
+          <KeyboardProvider>
+            <NetworkProvider>
+              <LanguageProvider>
+                <ThemeProvider>
+                  <AuthProvider> 
+                    <ToastProvider>
+                      <StudyProvider>
+                        <GamificationProvider>
+                          <AppContent />
+                        </GamificationProvider>
+                      </StudyProvider>
+                    </ToastProvider>
+                  </AuthProvider>
+                </ThemeProvider>
+              </LanguageProvider>
+            </NetworkProvider>
+            <StatusBar style="light" />
+          </KeyboardProvider>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 
@@ -316,4 +231,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#8E8E93",
   },
-});
+})

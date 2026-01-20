@@ -8,7 +8,7 @@ import { Platform } from "react-native";
  */
 function getApiUrl(): string {
   // Use Replit server URL for all environments
-  return "https://daheeh-kikaelshrief.replit.dev";
+  return "https://daheeh.onrender.com";
 }
 
 const BASE_URL = getApiUrl(); 
