@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as haptics from "@/utils/haptics";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
 import { useTheme } from "@/hooks/useTheme";
 import { useAccentTheme } from "@/contexts/ThemeContext";
@@ -17,7 +17,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { HomeStackParamList } from "@/navigation/HomeStackNavigator";
 import { useFloatingDockHeight } from "@/navigation/MainTabNavigator";
-import { Header } from "@/components/Header"; // Import the new Header component
+import { Header } from "@/components/Header";
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList, "Home">;
 
@@ -30,9 +30,7 @@ const hexToRgba = (hex: string, alpha: number): string => {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  // const headerHeight = useHeaderHeight(); // This is no longer needed with the new Header component
   const floatingDockHeight = useFloatingDockHeight();
-  const { theme } = useTheme();
   const { getAccentColor } = useAccentTheme();
   const { t, isRTL } = useLanguage();
   const accentColor = getAccentColor();
@@ -85,11 +83,11 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Header title={t("home")} />
+      <Header />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{
-          paddingTop: 120,
+          paddingTop: 80, // Adjusted padding to account for the new header
           paddingBottom: floatingDockHeight + Spacing.lg,
           paddingHorizontal: Spacing.lg,
         }}
@@ -200,7 +198,7 @@ export default function HomeScreen() {
                   styles.featureCard,
                   { opacity: pressed ? 0.85 : 1 }
                 ]}
-                onPress={() => handleNavigate(feature.route)}
+                onPress={() => handleNavigate(.route)}
               >
                 <View style={[styles.featureIcon, { backgroundColor: feature.accentColor + "15" }]}>
                   <Feather name={feature.icon as any} size={24} color={feature.accentColor} />
