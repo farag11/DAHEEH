@@ -1,51 +1,36 @@
-import React from "react";
-import { View, Text, StyleSheet, Button, ActivityIndicator, ScrollView } from "react-native";
+
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
-import { useQuery } from "@tanstack/react-query";
-import { Header } from "../components/Header";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
-
-const fetchCollections = async () => {
-  const res = await fetch(`${API_URL}/collections`);
-  if (!res.ok) {
-    throw new Error("Network response was not ok");
-  }
-  return res.json();
-};
 
 export default function HomeScreen() {
-  const { data, error, isLoading, isError, refetch } = useQuery({
-    queryKey: ["collections"],
-    queryFn: fetchCollections,
-  });
+  const [connectionStatus, setConnectionStatus] = useState("Connecting to Server...");
+  const [apiUrl, setApiUrl] = useState("");
+
+  useEffect(() => {
+    const checkApiConnection = async () => {
+      try {
+        const response = await fetch("https://daheeh.onrender.com");
+        if (response.ok) {
+          setConnectionStatus("Connected to Server!");
+        } else {
+          setConnectionStatus("Failed to connect to server.");
+        }
+      } catch (error) {
+        setConnectionStatus("Failed to connect to server.");
+      }
+    };
+
+    setApiUrl("https://daheeh.onrender.com");
+    checkApiConnection();
+  }, []);
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <Header title="Study Sets" />
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {isLoading && <ActivityIndicator size="large" color="#fff" />}
-        {isError && (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Server Offline</Text>
-            <Text style={styles.errorSubText}>
-              Could not connect to: {API_URL}
-            </Text>
-            <Text style={styles.errorSubText}>Error: {error.message}</Text>
-            <Button title="Retry" onPress={() => refetch()} />
-          </View>
-        )}
-        {data && (
-          <View>
-            {data.map((collection) => (
-              <View key={collection.id} style={styles.collectionItem}>
-                <Text style={styles.collectionName}>{collection.name}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+      <Text style={styles.title}>Welcome to Daheeh</Text>
+      <Text style={styles.subtitle}>{connectionStatus}</Text>
+      <Text style={styles.url}>{apiUrl}</Text>
     </View>
   );
 }
@@ -54,37 +39,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#0D0D1A",
-  },
-  scrollContainer: {
-    flexGrow: 1,
     justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    alignItems: "center"
   },
-  errorContainer: {
-    alignItems: "center",
-  },
-  errorText: {
-    color: "#FF6B6B",
-    fontSize: 24,
+  title: {
+    color: "#FFF",
+    fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 10,
+    marginBottom: 10
   },
-  errorSubText: {
-    color: "#fff",
+  subtitle: {
+    color: "#AAA",
     fontSize: 16,
-    marginBottom: 20,
-    textAlign: "center",
+    marginBottom: 10
   },
-  collectionItem: {
-    backgroundColor: "#1A1A2A",
-    padding: 20,
-    borderRadius: 10,
-    marginBottom: 10,
-    width: '100%',
-  },
-  collectionName: {
-    color: "#fff",
-    fontSize: 18,
-  },
+  url: {
+    color: "#888",
+    fontSize: 12
+  }
 });
