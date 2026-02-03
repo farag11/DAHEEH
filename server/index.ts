@@ -1,7 +1,10 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+<<<<<<< HEAD
 import { pool } from "./db";
+=======
+>>>>>>> 6cf9cf22be1338cdf4883993e61c027e1358e2ce
 import * as fs from "fs";
 import * as path from "path";
 
@@ -277,6 +280,7 @@ function setupErrorHandler(app: express.Application) {
   setupBodyParsing(app);
   setupRequestLogging(app);
 
+<<<<<<< HEAD
   try {
     await pool.query('SELECT 1');
     log("Database connected successfully");
@@ -284,6 +288,8 @@ function setupErrorHandler(app: express.Application) {
     log("Database connection failed:", error);
   }
 
+=======
+>>>>>>> 6cf9cf22be1338cdf4883993e61c027e1358e2ce
   // Health check endpoint for UptimeRobot monitoring
   app.get('/health', (_req: Request, res: Response) => {
     res.status(200).send('Daheeh Server is Awake and Running!');
