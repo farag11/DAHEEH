@@ -1,0 +1,95 @@
+{
+  "expo": {
+    "name": "Daheeh",
+    "slug": "daheeh",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "daheeh",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "jsEngine": "hermes",
+    "updates": {
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.daheeh.education.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Daheeh needs camera access to capture study materials for text extraction.",
+        "NSPhotoLibraryUsageDescription": "Daheeh needs photo library access to select study material images.",
+        "NSDocumentsFolderUsageDescription": "Daheeh needs access to documents to import study materials."
+      }
+    },
+    "android": {
+      "package": "com.daheeh.education.app",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "backgroundColor": "#4361EE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "edgeToEdgeEnabled": false,
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "output": "single",
+      "favicon": "./assets/images/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#4361EE",
+          "dark": {
+            "backgroundColor": "#121212"
+          }
+        }
+      ],
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Daheeh needs access to your photos to select study materials.",
+          "cameraPermission": "Daheeh needs camera access to capture study materials."
+        }
+      ],
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ]
+    ],
+    "experiments": {
+      "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "56efb752-2902-4791-860c-3c2da73b1677"
+      }
+    },
+    "owner": "egogogom"
+  }
+}
